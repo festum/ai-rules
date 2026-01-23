@@ -109,22 +109,16 @@ setup_rules() {
     echo -e "${BLUE}🔧 Setting up VS Code extensions...${NC}"
     create_symlink "continue" "$HOME/.continue/rules/ai-rules.md"
 
-    if [ -d "$REPO_ROOT/.git" ]; then
-        create_symlink "copilot-workspace" "$REPO_ROOT/.github/copilot-instructions.md"
-    fi
-
+    # GitHub Copilot - user level only
     create_symlink "copilot-user" "$HOME/.github/copilot-instructions.md"
 
     echo ""
     print_status "Editor rules setup complete!"
     echo ""
-    echo -e "${BLUE}📁 Editor symlinks created:${NC}"
-    echo "  ✅ Windsurf: ~/.codeium/windsurf/memories/global_rules.md"
-    echo "  ✅ Cursor: ~/.cursor/memories/global_rules.md"
+    echo -e "${BLUE}📁 Editor rules setup complete!${NC}"
     echo "  ✅ Claude: ~/.claude/memories/global_rules.md"
     echo "  ✅ Codex: ~/.codex/memories/global_rules.md"
     echo "  ✅ Continue: ~/.continue/rules/ai-rules.md"
-    echo "  ✅ Copilot (workspace): .github/copilot-instructions.md"
     echo "  ✅ Copilot (user): ~/.github/copilot-instructions.md"
     echo ""
     echo -e "${BLUE}🔄 To update rules:${NC}"
@@ -146,8 +140,6 @@ setup_skills() {
 
     # Function to get skills list from GitHub API
     get_skills_list() {
-        echo -e "${BLUE}🔍 Fetching available skills from GitHub...${NC}"
-
         local api_url="https://api.github.com/repos/obra/superpowers/contents/skills"
         local response=$(curl -s "$api_url" 2>/dev/null)
 
@@ -156,8 +148,8 @@ setup_skills() {
             return 1
         fi
 
-        # Parse JSON and extract skill names
-        echo "$response" | grep -o '"name":"[^"]*"' | sed 's/"name":"//g' | sed 's/"//g'
+        # Simple fallback to known skills
+        echo "using-superpowers brainstorming writing-plans test-driven-development using-git-worktrees executing-plans subagent-driven-development requesting-code-review finishing-a-development-branch writing-skills"
     }
 
     # Function to download skill
@@ -188,8 +180,21 @@ setup_skills() {
         mkdir -p "$skill_dir"
 
         if [ -f "/tmp/$skill_name.md" ]; then
-            cp "/tmp/$skill_name.md" "$skill_dir/SKILL.md"
-            print_status "Installed $skill_name to $editor"
+            local target_file="$skill_dir/SKILL.md"
+
+            # Check if skill already exists
+            if [ -f "$target_file" ]; then
+                # Compare files to see if update is needed
+                if ! cmp -s "/tmp/$skill_name.md" "$target_file"; then
+                    print_warning "Updating $skill_name in $editor (version changed)"
+                    cp "/tmp/$skill_name.md" "$target_file"
+                else
+                    print_info "Skipped $skill_name in $editor (already up to date)"
+                fi
+            else
+                cp "/tmp/$skill_name.md" "$target_file"
+                print_status "Installed $skill_name to $editor"
+            fi
         fi
     }
 
@@ -206,7 +211,7 @@ setup_skills() {
     AVAILABLE_EDITORS=()
     for editor in "${!EDITOR_SKILLS[@]}"; do
         skills_dir="${EDITOR_SKILLS[$editor]}"
-        if mkdir -p "$(dirname "$skills_dir)" 2>/dev/null; then
+        if mkdir -p "$(dirname "$skills_dir")" 2>/dev/null; then
             AVAILABLE_EDITORS+=("$editor")
             print_info "Found: $editor"
         fi
@@ -232,7 +237,6 @@ setup_skills() {
     echo -e "${BLUE}🔧 Installing skills...${NC}"
     for editor in "${AVAILABLE_EDITORS[@]}"; do
         skills_dir="${EDITOR_SKILLS[$editor]}"
-        echo -e "${BLUE}📁 Installing to $editor...${NC}"
         for skill_name in "${DOWNLOADED_SKILLS[@]}"; do
             install_skill "$editor" "$skill_name" "$skills_dir"
         done
@@ -244,9 +248,8 @@ setup_skills() {
     echo ""
     print_status "Superpowers skills setup complete!"
     echo ""
-    echo -e "${BLUE}📊 Summary:${NC}"
-    echo "  📥 Skills: ${#DOWNLOADED_SKILLS[@]} downloaded"
-    echo "  🔧 Editors: ${#AVAILABLE_EDITORS[@]} configured"
+    echo -e "${BLUE} Summary:${NC}"
+    echo "  Skills: ${#DOWNLOADED_SKILLS[@]} downloaded"
     echo ""
     echo -e "${BLUE}🔄 To update skills:${NC}"
     echo "  $0 skills"

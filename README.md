@@ -37,7 +37,7 @@ ai-rules/
 
 ### VS Code Extensions (symlinks)
 - **Continue**: `~/.continue/rules/ai-rules.md`
-- **GitHub Copilot**: `.github/copilot-instructions.md`
+- **GitHub Copilot**: `~/.github/copilot-instructions.md`
 
 ### Superpowers Skills (native)
 - **Process skills**: brainstorming, writing-plans, TDD, git-worktrees, systematic-debugging
@@ -96,7 +96,6 @@ rm ~/.cursor/memories/global_rules.md
 rm ~/.claude/memories/global_rules.md
 rm ~/.codex/memories/global_rules.md
 rm ~/.continue/rules/ai-rules.md
-rm .github/copilot-instructions.md
 rm ~/.github/copilot-instructions.md
 
 # Restore from .bak files if they exist
