@@ -1,103 +1,107 @@
 # AI Rules Template
 
-Synchronize AI coding rules across Windsurf, Cursor, VS Code, Cline, and GitHub Copilot editors.
+Synchronize AI coding rules across Windsurf, Cursor, VS Code, Cline, GitHub Copilot, and Aider.
 
 ## 🚀 Quick Setup
 
 ```bash
-# Make scripts executable and run setup
-chmod +x scripts/setup.sh scripts/sync.sh
-./scripts/setup.sh
+# Clone this repo
+git clone <ai-rules-repo-url>
+cd ai-rules
+
+# Setup rules and skills (default: both)
+chmod +x scripts/setup.sh
+./scripts/setup.sh              # Setup both rules and skills
 ```
-
-## 📝 Daily Workflow
-
-1. **Edit your rules:**
-   ```bash
-   vim ai_rules/master-rules.md
-   ```
-
-2. **Sync to all editors + cloud:**
-   ```bash
-   ./scripts/sync.sh
-   ```
 
 ## 📁 Repository Structure
 
 ```
-ai-rules-template/
+ai-rules/
 ├── ai_rules/
-│   └── master-rules.md          # Main rules file (edit here only)
-├── .windsurfrules               # Symlink → ai_rules/master-rules.md
-├── .cursorrules                 # Symlink → ai_rules/master-rules.md
-├── .clinerules                  # Symlink → ai_rules/master-rules.md
-├── .copilot-instructions.md     # Symlink → ai_rules/master-rules.md
+│   └── master-rules.md          # Master rules + Superpowers methodology
 ├── scripts/
-│   ├── setup.sh                 # Create symlinks + git init
-│   └── sync.sh                  # Copy rules + git commit/push
+│   └── setup.sh                 # Universal setup script
 ├── .gitignore
 ├── README.md
 └── LICENSE
 ```
 
-## 🎯 Supported Editors
+## 🎯 What Gets Set Up
 
-| Editor | Config File | Status |
-|--------|-------------|--------|
-| Windsurf | `.windsurfrules` | ✅ Supported |
-| Cursor | `.cursorrules` | ✅ Supported |
-| Cline | `.clinerules` | ✅ Supported |
-| GitHub Copilot | `.copilot-instructions.md` | ✅ Supported |
+### Editor Rules (symlinks)
+- **Windsurf**: `~/.codeium/windsurf/memories/global_rules.md`
+- **Cursor**: `~/.cursor/memories/global_rules.md`
+- **Claude**: `~/.claude/memories/global_rules.md`
+- **Codex**: `~/.codex/memories/global_rules.md`
 
-## ⚙️ How It Works
+### VS Code Extensions (symlinks)
+- **Continue**: `~/.continue/rules/ai-rules.md`
+- **GitHub Copilot**: `.github/copilot-instructions.md`
 
-1. **Single Source of Truth:** Edit only `ai_rules/master-rules.md`
-2. **Automatic Sync:** Scripts copy rules to all editor config files
-3. **Version Control:** Git tracks all changes automatically
-4. **Cloud Backup:** Push to remote repository for backup
+### Superpowers Skills (native)
+- **Process skills**: brainstorming, writing-plans, TDD, git-worktrees, systematic-debugging
+- **Implementation skills**: executing-plans, code review, branch completion, verification-before-completion
+- **Advanced skills**: writing skills, subagent development, parallel agents
 
-## 🛠️ Script Details
+## 📝 Daily Workflow
 
-### setup.sh
-- Creates directory structure
-- Sets up symlinks for all editors
-- Initializes git repository
-- Creates default rules file if needed
+1. **Edit rules:**
+   ```bash
+   vim ai_rules/master-rules.md
+   ```
 
-### sync.sh
-- Copies master rules to all editor files
-- Commits changes with timestamp
-- Pushes to remote repository (if configured)
+2. **Update skills (if needed):**
+   ```bash
+   ./scripts/setup.sh skills
+   ```
 
-## 📋 Customization
+3. **Changes are immediately available in all editors!**
 
-Edit `ai_rules/master-rules.md` to add your own coding standards, preferences, and project-specific rules. The file supports:
+## 🔧 Available Commands
 
-- Markdown formatting
-- Front matter for editor-specific settings
-- Code blocks and examples
-- Custom sections and categories
-
-## 🔧 Troubleshooting
-
-**Symlinks not working?**
 ```bash
-# Remove broken symlinks and recreate
-rm .windsurfrules .cursorrules .clinerules .copilot-instructions.md
-./scripts/setup.sh
+./scripts/setup.sh              # Setup both rules and skills (default)
+./scripts/setup.sh rules        # Setup editor rules only
+./scripts/setup.sh skills       # Setup Superpowers skills only
+./scripts/setup.sh help         # Show help
 ```
 
-**Git push failing?**
+## 📋 Superpowers Skills
+
+The master rules include Superpowers methodology with native skill integration:
+
+**Process Skills:**
+- **using-superpowers** - Mandatory skill invocation rules
+- **brainstorming** - Design refinement through questions
+- **writing-plans** - Implementation planning with TDD cycles
+- **test-driven-development** - RED-GREEN-REFACTOR methodology
+- **using-git-worktrees** - Isolated development environments
+
+**Implementation Skills:**
+- **executing-plans** - Batch execution with checkpoints
+- **subagent-driven-development** - Fresh agents per task
+- **requesting-code-review** - Two-stage review process
+- **finishing-a-development-branch** - Branch completion workflow
+
+**Advanced Skills:**
+- **writing-skills** - Creating and testing new skills
+
+## 🗑️  Cleanup
+
 ```bash
-# Configure remote repository
-git remote add origin <your-repo-url>
-git push -u origin main
+# Remove editor symlinks
+rm ~/.codeium/windsurf/memories/global_rules.md
+rm ~/.cursor/memories/global_rules.md
+rm ~/.claude/memories/global_rules.md
+rm ~/.codex/memories/global_rules.md
+rm ~/.continue/rules/ai-rules.md
+rm .github/copilot-instructions.md
+rm ~/.github/copilot-instructions.md
+
+# Restore from .bak files if they exist
 ```
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-**Happy coding with consistent AI rules! 🎉**
