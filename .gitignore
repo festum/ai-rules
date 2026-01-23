@@ -1,0 +1,9 @@
+# Editor settings
+.vscode/settings.json
+.windsurf/settings.json
+.cursor/settings.json
+node_modules/
+.DS_Store
+*.log
+.env
+.env.local
