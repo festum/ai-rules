@@ -130,13 +130,9 @@ setup_rules() {
 setup_skills() {
     echo -e "${BLUE}🚀 Setting up Superpowers skills...${NC}"
 
-    # Define editor skill paths
-    declare -A EDITOR_SKILLS=(
-        ["windsurf"]="$HOME/.codeium/windsurf/skills"
-        ["cursor"]="$HOME/.cursor/skills"
-        ["claude"]="$HOME/.claude/skills"
-        ["codex"]="$HOME/.codex/skills"
-    )
+    # Define editor names and their skill paths in parallel arrays (Bash 3.x compatible)
+    EDITOR_NAMES=("windsurf" "cursor" "claude" "codex")
+    EDITOR_SKILLS_PATHS=("$HOME/.codeium/windsurf/skills" "$HOME/.cursor/skills" "$HOME/.claude/skills" "$HOME/.codex/skills")
 
     # Function to get skills list from GitHub API
     get_skills_list() {
@@ -209,10 +205,13 @@ setup_skills() {
     # Check available editors
     echo -e "${BLUE}🔍 Checking for editors...${NC}"
     AVAILABLE_EDITORS=()
-    for editor in "${!EDITOR_SKILLS[@]}"; do
-        skills_dir="${EDITOR_SKILLS[$editor]}"
+    AVAILABLE_SKILLS_DIRS=()
+    for i in "${!EDITOR_NAMES[@]}"; do
+        editor="${EDITOR_NAMES[$i]}"
+        skills_dir="${EDITOR_SKILLS_PATHS[$i]}"
         if mkdir -p "$(dirname "$skills_dir")" 2>/dev/null; then
             AVAILABLE_EDITORS+=("$editor")
+            AVAILABLE_SKILLS_DIRS+=("$skills_dir")
             print_info "Found: $editor"
         fi
     done
@@ -235,8 +234,9 @@ setup_skills() {
 
     # Install to editors
     echo -e "${BLUE}🔧 Installing skills...${NC}"
-    for editor in "${AVAILABLE_EDITORS[@]}"; do
-        skills_dir="${EDITOR_SKILLS[$editor]}"
+    for i in "${!AVAILABLE_EDITORS[@]}"; do
+        editor="${AVAILABLE_EDITORS[$i]}"
+        skills_dir="${AVAILABLE_SKILLS_DIRS[$i]}"
         for skill_name in "${DOWNLOADED_SKILLS[@]}"; do
             install_skill "$editor" "$skill_name" "$skills_dir"
         done
