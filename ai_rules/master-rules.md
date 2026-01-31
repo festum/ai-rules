@@ -38,6 +38,27 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 5. **Code Review** - Review against plan, report issues by severity, critical issues block progress
 6. **Branch Completion** - Verify tests, present merge/PR options, cleanup worktree
 
+### Go Pre-flight Checklist (Mandatory for every Task)
+Before declaring a task "done" or providing the final solution, you MUST:
+
+1. **Dependency & Impact Analysis:**
+   - Scan the workspace to ensure changes do not break other packages.
+   - Consider side effects on shared states or configurations.
+2. **Unittest Verification & Supplement:**
+   - Check if the modified logic has existing tests.
+   - **If missing or insufficient:** You MUST generate high-quality unit tests.
+   - For Go: Use the standard `testing` package or `testify`.
+3. **Static Analysis & Quality Hooks:**
+   - Run and pass `go fmt` and `go vet`.
+   - Run the project's `pre-commit` hooks.
+   - Ensure compliance with `golangci-lint` if available.
+
+### Go Execution Workflow
+1. **Plan:** Briefly state how the change adheres to Uber Go style and assess potential impact.
+2. **Code:** Implement using Idiomatic Go.
+3. **Verify:** Run `go test ./...` and `pre-commit run`.
+4. **Refactor:** Fix any linting or test failures before finalizing.
+
 ### Skill Usage Rules
 
 #### Mandatory Skill Invocation
@@ -180,9 +201,54 @@ This repository includes native Superpowers skills integration. Run `./scripts/a
 - **Docstrings** - Google or NumPy style for all public functions
 - **List comprehensions** - Over map/filter where readable
 
+### Go Specific
+- **KSS + Idiomatic Go:** Prioritize clarity. "Clear is better than clever."
+- **Uber Go Style Guide:** Strictly follow the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md).
+  - Use `Pointers to Interfaces` only when necessary (rarely).
+  - Be explicit about `Slices` and `Maps` initialization.
+  - Follow Uber's rules for `Errors` (wrapping and types).
+  - Function grouping and ordering (Exported first).
+- **Composition over Inheritance:** Use struct embedding. No deep hierarchies.
+- **CSP Concurrency:** Use channels/goroutines. Proverb: "Don't communicate by sharing memory; share memory by communicating."
+- **Interface Design:** "Accept interfaces, return structs". Keep interfaces tiny (1-2 methods).
+
 ## Code Organization
 
 ### File Structure
+
+#### Go Project Layout (Standard)
+```
+.
+├── cmd/                  # Main applications for this project
+│   └── myapp/           # Application entry points
+├── internal/            # Private application and library code
+│   ├── app/             # Application code
+│   └── pkg/             # Internal shared libraries
+├── pkg/                 # Public library code (externally importable)
+├── api/                 # OpenAPI/Swagger specs, JSON schema files
+├── configs/             # Configuration file templates or default configs
+├── init/                # System init (systemd, upstart, sysv) configs
+├── scripts/             # Build, install, analysis scripts
+├── bin/               # Packaging and CI configurations
+│   ├── ci/              # CI configurations
+│   └── package/         # Package configurations
+├── deployments/         # IaaS, PaaS, container orchestration configs
+├── test/                # External test apps and test data
+│   └── testdata/        # Test data ignored by Go
+├── docs/                # Design and user documents
+├── tools/               # Supporting tools for this project
+├── examples/            # Examples for applications and libraries
+├── third_party/         # External helper tools, forked code
+├── githooks/            # Git hooks
+├── assets/              # Other assets (images, logos, etc)
+├── website/             # Project website data
+├── go.mod               # Go module file
+├── go.sum               # Go module checksums
+├── Makefile             # Build automation
+└── README.md            # Project overview
+```
+
+#### General Application Layout (Non-Go)
 ```
 src/
 ├── components/          # UI components
@@ -230,7 +296,7 @@ src/
 - **Use two-stage review process**
 - **Generate test cases before implementation**
 
-### For VS Code
+### For VSCode
 - **Workspace settings enforce TDD workflow**
 - **Extensions support Superpowers methodology**
 - **Integrate with git worktrees for branch isolation**
@@ -351,3 +417,7 @@ src/
 - **Rollback plans** - Quick recovery
 - **Monitoring** - System health
 - **Alerting** - Proactive notifications
+
+## Go Maintenance & Cleanup
+- Remove unnecessary annotations, unused imports, and redundant helper functions.
+- Maintain consistent file structure and naming conventions.
