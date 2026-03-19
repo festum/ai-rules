@@ -112,6 +112,10 @@ setup_rules() {
     # GitHub Copilot - user level only
     create_symlink "copilot-user" "$HOME/.github/copilot-instructions.md"
 
+    # Opencode configuration
+    echo -e "${BLUE}🔧 Setting up Opencode configuration...${NC}"
+    create_symlink "opencode" "$HOME/.config/opencode/AGENTS.md"
+
     echo ""
     print_status "Editor rules setup complete!"
     echo ""
@@ -120,6 +124,7 @@ setup_rules() {
     echo "  ✅ Codex: ~/.codex/memories/global_rules.md"
     echo "  ✅ Continue: ~/.continue/rules/ai-rules.md"
     echo "  ✅ Copilot (user): ~/.github/copilot-instructions.md"
+    echo "  ✅ Opencode: ~/.config/opencode/AGENTS.md"
     echo ""
     echo -e "${BLUE}🔄 To update rules:${NC}"
     echo "  Edit: $MASTER_RULES"
@@ -131,8 +136,8 @@ setup_skills() {
     echo -e "${BLUE}🚀 Setting up Superpowers skills...${NC}"
 
     # Define editor names and their skill paths in parallel arrays (Bash 3.x compatible)
-    EDITOR_NAMES=("windsurf" "cursor" "claude" "codex")
-    EDITOR_SKILLS_PATHS=("$HOME/.codeium/windsurf/skills" "$HOME/.cursor/skills" "$HOME/.claude/skills" "$HOME/.codex/skills")
+    EDITOR_NAMES=("windsurf" "cursor" "claude" "codex" "opencode")
+    EDITOR_SKILLS_PATHS=("$HOME/.codeium/windsurf/skills" "$HOME/.cursor/skills" "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.config/opencode/skills")
 
     # Function to get skills list from GitHub API
     get_skills_list() {

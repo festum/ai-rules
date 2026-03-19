@@ -4,6 +4,7 @@
 # Cursor: alwaysApply: true
 # Aider: system prompt integration
 # GitHub Copilot: instruction following
+# OpenCode: AGENTS.md always included
 ---
 
 ## Iron Laws
@@ -11,6 +12,16 @@
 ```
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 NEVER add parameters unless test fails without them
+ABSOLUTELY PROHIBIT any, interface{}, object types unless test demands it
+NEVER introduce ctx, logger, metrics, tracing, options={}, metadata={} unless explicitly required by failing test or conversation
+ABSOLUTELY FORBID hard-coded magic numbers, strings, paths - extract to named constants
+NEVER swallow errors silently - always propagate or handle explicitly
+PROHIBIT overengineering, future-proofing, optional parameters
+ABSOLUTELY NEVER rewrite complete files unless explicitly specified
+PROHIBIT modifying unrelated code, files, or adding unrequested formatting changes
+NEVER use console.log, print in production code
+PROHIBIT untested code submission
+ABSOLUTELY FORBID unused imports, variables, dependencies
 Violations BLOCK ALL PROGRESS
 ```
 
@@ -34,7 +45,7 @@ NEVER add parameters, fields, or dependencies unless DIRECTLY required by:
 
 ### Language-Specific Forbidden Patterns
 
-| Language | ❌ 多餘 | ✅ 極簡 |
+| Language | ❌ Bad | ✅ Minimal |
 |----------|---------|---------|
 | Go | `func(ctx, amount, userID, logger, metrics)` | `func(amount int, userID string) error` |
 | TypeScript | `async function(ctx: Context, data: Data, logger?: Logger)` | `async function(data: Data): Promise<Data>` |
@@ -49,11 +60,15 @@ NEVER add parameters, fields, or dependencies unless DIRECTLY required by:
 - ❌ `ctx`, `logger`, `metrics`, `tracing`, `options={}`, `metadata={}`
 - ❌ `interface{}`, `any`, `object` unless test demands it
 - ❌ Default values unless test fails without them
+- ❌ Hard-coded values, magic numbers
+- ❌ Unused code, imports
+- ❌ Unrelated modifications
 
 Violation report format:
 ```
 VIOLATION: func(X) has param Y
 Reason: Not in conversation / Not required by tests / Not required by called APIs
+PROHIBITION: Added ctx/logger - DELETE IMMEDIATELY
 ```
 
 ## Universal Pre-flight Checklist (MANDATORY - EVERY TASK)
@@ -69,6 +84,7 @@ Before declaring a task "done" you MUST complete:
    Proposed: func(X, Y, Z)
    Required by tests/conversation: X, Y
    DELETE: Z
+   PROHIBITED: ctx, logger, any, magic numbers
    ```
 
 3. Test Coverage
@@ -80,6 +96,7 @@ Before declaring a task "done" you MUST complete:
    Params match requirements: [YES/NO]
    Lines vs functionality: [<50 preferred, justify if more]
    Imports: [100% used]
+   No prohibited patterns: [YES/NO]
    ```
 
 5. Linting
@@ -103,6 +120,7 @@ Before declaring a task "done" you MUST complete:
 ### GREEN - Minimal Code
 - Simplest code to pass the test — no extra features
 - MANDATORY: Watch it pass with pristine output
+- PROHIBIT any prohibited patterns
 
 ### REFACTOR - Clean Up
 - Remove duplication, improve names, extract helpers
@@ -126,18 +144,21 @@ Before declaring a task "done" you MUST complete:
 | finishing-a-development-branch | Feature done | Branch completion workflow |
 
 ### Invocation Rules
-- If there's even a 1% chance a skill applies, you ABSOLUTELY MUST invoke it
+- ALWAYS invoke using-superpowers first on any task
+- If there's even a 1% chance a skill applies, you ABSOLUTELY MUST invoke it via @skill-name
 - Process skills first (brainstorming, debugging) — determine HOW to approach
 - Implementation skills second (writing-plans, executing-plans) — guide execution
+- Windsurf: @skill-name manual invocation if auto-miss
+- Cursor: Skills via Composer mode activation
 
 | Thought | Reality |
 |---------|---------|
-| "This is just a simple question" | Questions are tasks. Check for skills. |
-| "I need more context first" | Skill check comes BEFORE clarifying questions. |
-| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "This doesn't need a formal skill" | If a skill exists, use it. |
-| "I remember this skill" | Skills evolve. Read current version. |
-| "The skill is overkill" | Simple things become complex. Use it. |
+| "This is just a simple question" | Questions are tasks. Invoke using-superpowers. |
+| "I need more context first" | Skill check BEFORE clarifying questions. |
+| "Let me explore the codebase first" | Skills tell you HOW. Invoke first. |
+| "This doesn't need a formal skill" | If skill exists, invoke. |
+| "I remember this skill" | Read current rules. Invoke. |
+| "The skill is overkill" | Use always. |
 
 ## Coding Standards
 
@@ -147,6 +168,7 @@ Before declaring a task "done" you MUST complete:
 - Small functions - Maximum 20 lines, ideally 5-10
 - No magic numbers - Extract to named constants
 - Error handling - Never swallow silently
+- PROHIBIT console.log/print in prod
 
 ### TypeScript/JavaScript
 - `use strict` and TypeScript strict mode always enabled
@@ -165,7 +187,7 @@ Before declaring a task "done" you MUST complete:
 
 ### Go
 - Idiomatic Go: "Clear is better than clever"
-- Strictly follow [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+- Strictly follow Uber Go Style Guide
   - Pointers to Interfaces only when necessary (rarely)
   - Explicit Slices and Maps initialization
   - Uber error wrapping and types
@@ -186,7 +208,7 @@ Before declaring a task "done" you MUST complete:
 - Variables: camelCase (`userName`, `totalAmount`)
 
 ### Project Structure
-- Go: [golang-standards/project-layout](https://github.com/golang-standards/project-layout) — `cmd/`, `internal/`, `pkg/`
+- Go: golang-standards/project-layout — `cmd/`, `internal/`, `pkg/`
 - TS/JS: Feature or layer grouping — `components/`, `services/`, `utils/`, `types/`, `tests/`
 
 ## Testing Strategy
@@ -210,6 +232,7 @@ Before declaring a task "done" you MUST complete:
 - `dev` — Integration
 - `feature/*`, `bugfix/*`, `hotfix/*`
 
+
 ### Commit Standards
 - Conventional commits: `type(scope): description`
 - Atomic commits — one logical change per commit
@@ -217,20 +240,21 @@ Before declaring a task "done" you MUST complete:
 
 ## Editor Integration
 
-| Feature | Windsurf | Cursor | VSCode | Copilot | Aider |
-|---------|----------|--------|--------|---------|-------|
-| Workflow | Cascade agent + Skills | Context-aware completion | Extension-based | Inline suggestions | CLI-driven |
-| TDD | Brainstorming skill | Auto test generation | Test runner integration | Test snippet generation | Git worktree automation |
-| Branching | Git worktree skills | Built-in branching | Manual via extensions | N/A | Native worktree support |
-| Review | Subagent-driven | Dual review stages | Manual tools | Comment-based | Automated mode |
-| Context | Memory + Rules | Max mode (200k tokens) | Workspace settings | File-level | Full repo |
+| Feature | Windsurf | Cursor | VSCode | Copilot | Aider | OpenCode |
+|---------|----------|--------|--------|---------|-------|----------|
+| Workflow | Cascade agent + Skills always_on | Context-aware completion alwaysApply:true | Extension-based | Inline suggestions | CLI-driven | AGENTS.md root |
+| TDD | Brainstorming skill | Auto test generation | Test runner integration | Test snippet generation | Git worktree automation | AGENTS.md enforced |
+| Branching | Git worktree skills | Built-in branching | Manual via extensions | N/A | Native worktree support | Manual |
+| Review | Subagent-driven | Dual review stages | Manual tools | Comment-based | Automated mode | AGENTS.md review |
+| Context | Memory + .windsurfrules | Max mode (200k tokens) + .cursorrules | Workspace settings | File-level | Full repo | AGENTS.md + CLAUDE.md |
 
 ### Activation
-- Windsurf: `trigger: always_on`, invoke skills explicitly
+- Windsurf: `trigger: always_on`, invoke skills explicitly @skill-name
 - Cursor: `alwaysApply: true`, enable Composer for complex tasks
 - VSCode: `.vscode/settings.json`, install Superpowers extension
 - Copilot: Instructions via comments and workspace context
 - Aider: `--message-file` or system prompt integration
+- OpenCode: AGENTS.md in project root, priority local > global
 
 ## Security Guidelines
 
@@ -260,6 +284,7 @@ Before marking any task complete, MUST verify:
 1. Variable Completeness — List all vars/params from plan/conversation; confirm each is declared, initialized, used. Red flag: plan mentions X but code doesn't define it
 2. Cross-File Dependencies — List changed files; verify imports/exports bidirectionally consistent; check signatures match at call sites. Red flag: modified signature without updating callers
 3. Scope Preservation — State exact change before edit; confirm ONLY requested changes after. Red flag: reformatted arrays, changed quotes, modified unrelated files
+4. Prohibition Compliance — Scan for ctx/logger/any/magic numbers/unused code
 
 ### Implementation Protocol
 
@@ -273,6 +298,7 @@ Stage 2 — During:
 - [ ] Re-read full file if >200 lines
 - [ ] Verify all referenced entities exist before adding code
 - [ ] Update one file at a time; verify before next
+- [ ] Check no prohibited patterns introduced
 
 Stage 3 — Post-Implementation:
 - [ ] Run static analysis (go vet, golangci-lint)
@@ -285,7 +311,8 @@ Stop and report immediately if:
 - Cannot locate a variable mentioned in conversation
 - Modified >3 files without per-file verification
 - Suggested unrequested formatting changes
-- Cannot see full context of files being edited
+- Detected prohibited patterns (ctx, any, magic numbers, etc.)
+
 
 ### Compensation Strategies
 - Long files (>200 lines): Request file split or explicit context window
