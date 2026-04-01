@@ -237,6 +237,16 @@ setup_skills() {
         fi
     done
 
+    # Download humanizer skill
+    HUMANIZER_SKILL_URL="https://raw.githubusercontent.com/blader/humanizer/refs/heads/main/SKILL.md"
+    echo -e "${BLUE}📥 Downloading: humanizer${NC}"
+    if curl -s -f -L "$HUMANIZER_SKILL_URL" > "/tmp/humanizer.md"; then
+        print_status "Downloaded: humanizer"
+        DOWNLOADED_SKILLS+=("humanizer")
+    else
+        print_warning "Failed to download: humanizer"
+    fi
+
     # Install to editors
     echo -e "${BLUE}🔧 Installing skills...${NC}"
     for i in "${!AVAILABLE_EDITORS[@]}"; do
