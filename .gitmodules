@@ -1,0 +1,3 @@
+[submodule "skills/cc-skills-golang"]
+	path = skills/cc-skills-golang
+	url = git@github.com:samber/cc-skills-golang.git

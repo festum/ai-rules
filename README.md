@@ -20,6 +20,8 @@ chmod +x scripts/setup.sh
 ai-rules/
 ├── ai_rules/
 │   └── master-rules.md          # Master rules + Superpowers methodology
+├── skills/
+│   └── <skill-name>/SKILL.md    # One folder per skill
 ├── scripts/
 │   └── setup.sh                 # Universal setup script
 ├── .gitignore
@@ -39,10 +41,13 @@ ai-rules/
 - **Continue**: `~/.continue/rules/ai-rules.md`
 - **GitHub Copilot**: `~/.github/copilot-instructions.md`
 
-### Superpowers Skills (native)
-- **Process skills**: brainstorming, writing-plans, TDD, git-worktrees, systematic-debugging
-- **Implementation skills**: executing-plans, code review, branch completion, verification-before-completion
-- **Advanced skills**: writing skills, subagent development, parallel agents
+### Skills (symlinks)
+The entire `skills/` folder is symlinked into every supported tool, so every skill is available everywhere:
+- **Cursor**: `~/.cursor/skills`
+- **Agents**: `~/.agents/skills`
+- **Claude**: `~/.claude/skills`
+- **Opencode**: `~/.opencode/skills`
+- **Hermes**: `~/.hermes/skills`
 
 ## 📝 Daily Workflow
 
@@ -63,40 +68,32 @@ ai-rules/
 ```bash
 ./scripts/setup.sh              # Setup both rules and skills (default)
 ./scripts/setup.sh rules        # Setup editor rules only
-./scripts/setup.sh skills       # Setup Superpowers skills only
+./scripts/setup.sh skills       # Setup skills only
 ./scripts/setup.sh help         # Show help
 ```
 
-## 📋 Superpowers Skills
+## 📋 Skills
 
-The master rules include Superpowers methodology with native skill integration:
-
-**Process Skills:**
-- **using-superpowers** - Mandatory skill invocation rules
-- **brainstorming** - Design refinement through questions
-- **writing-plans** - Implementation planning with TDD cycles
-- **test-driven-development** - RED-GREEN-REFACTOR methodology
-- **using-git-worktrees** - Isolated development environments
-
-**Implementation Skills:**
-- **executing-plans** - Batch execution with checkpoints
-- **subagent-driven-development** - Fresh agents per task
-- **requesting-code-review** - Two-stage review process
-- **finishing-a-development-branch** - Branch completion workflow
-
-**Advanced Skills:**
-- **writing-skills** - Creating and testing new skills
+Each skill is a folder under `skills/` with a `SKILL.md` (Superpowers methodology, personal workflow skills, and language-specific skill packs all live side by side). To add or change a skill, edit its `SKILL.md` directly — the change is live in every tool immediately, no re-run of `setup.sh` needed.
 
 ## 🗑️  Cleanup
 
 ```bash
-# Remove editor symlinks
+# Remove editor rule symlinks
 rm ~/.codeium/windsurf/memories/global_rules.md
 rm ~/.cursor/memories/global_rules.md
 rm ~/.claude/memories/global_rules.md
 rm ~/.codex/memories/global_rules.md
 rm ~/.continue/rules/ai-rules.md
 rm ~/.github/copilot-instructions.md
+rm ~/.config/opencode/AGENTS.md
+
+# Remove skill symlinks
+rm ~/.cursor/skills
+rm ~/.agents/skills
+rm ~/.claude/skills
+rm ~/.opencode/skills
+rm ~/.hermes/skills
 
 # Restore from .bak files if they exist
 ```
