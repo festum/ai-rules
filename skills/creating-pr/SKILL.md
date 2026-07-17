@@ -26,7 +26,11 @@ git diff origin/main --stat
 
 Squash fixup commits if the project prefers clean history. Keep logical commits separate if the project prefers granular history.
 
-**Personal convention:** if the branch is behind the base branch, merge the base branch in automatically and resolve conflicts without asking.
+Personal convention: if the branch is behind the base branch, auto pull/merge `main` and resolve conflicts without asking.
+
+Commit message rules (personal):
+- Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), ≤15 words, scope optional.
+- Do not add `Co-Authored-By: Claude` trailer.
 
 ### 2. Write the Title
 
@@ -71,7 +75,7 @@ Closes #123
 - [ ] Check no flash of unstyled content on load
 ```
 
-**Personal convention (overrides the above):** if the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description to a brief summary. Fill in feature owner (`@MohitChandna`) and the Jira ticket (`ON-XXXX`).
+Personal convention (overrides the above): if the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@secilozdemir`) and the Jira ticket (`ON-XXXX`).
 
 ### 4. Self-Review
 
@@ -82,6 +86,8 @@ Before requesting review:
 - Verify types: `npx tsc --noEmit`
 - Verify lint: `npm run lint`
 - Check for files that shouldn't be committed (`.env`, lockfile conflicts)
+
+Personal convention: before committing, also run coverage checks and the `TF plan and apply DEV from branch (manual)` GitHub Action (if exists) to deploy and verify integration tests pass in DEV.
 
 ### 5. Create the PR
 
@@ -100,6 +106,8 @@ EOF
 )"
 ```
 
+Personal convention: use the `gh` CLI exclusively for all PR interactions (create, review, comment, merge).
+
 ### 6. Request Review
 
 - Tag the appropriate reviewers (code owners, domain experts)
@@ -113,3 +121,7 @@ EOF
 - If a PR is too big, split it into stacked PRs
 - Screenshots/recordings for UI changes make review much faster
 - Draft PRs are useful for early feedback before the work is complete
+
+## CI Notes (personal)
+
+- A failing `validate-and-record-change` job means the PR isn't approved yet — do not treat it as a CI failure.
