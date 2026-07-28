@@ -92,6 +92,7 @@ When asked to write in the user's voice, use available writing samples and memor
 - No rule-of-three used for rhetorical effect. Keep factual lists intact.
 - No icons or emoji.
 - Use minimal formatting. Structured plans and reference documents may use Markdown headings and lists when they improve navigation. Avoid decorative headings, unnecessary sections, tables, and visual chunking.
+- No decorative parenthetical tags: dates like `(merged 2026-07-27)`, filenames already shown elsewhere like `(rds.tf)`, or a heading suffix that just repeats the section/doc topic like `Infrastructure (Terraform)` or `Handover (ON-2017)`. Before adding a `(...)` aside, check whether it's structurally required (a table cell, a Jira field, a monitor link) or genuinely new disambiguating information (e.g. `(CDD team)` naming who defined something). If it only restates or labels something already obvious from context, cut it or fold the fact into the sentence as prose.
 
 ## Banned language
 
