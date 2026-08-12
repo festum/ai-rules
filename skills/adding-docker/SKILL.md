@@ -16,7 +16,7 @@ Use this skill when the user asks to dockerize, containerize, or add Docker supp
    For Node.js (example):
 
    ```dockerfile
-   FROM node:20-alpine AS base
+   FROM node:26-alpine AS base
 
    FROM base AS deps
    WORKDIR /app
@@ -53,7 +53,7 @@ Use this skill when the user asks to dockerize, containerize, or add Docker supp
    *.md
    ```
 
-4. **Create `docker-compose.yml`** (if the app has dependencies like a database or Redis):
+4. **Create `compose.yml`** (if the app has dependencies like a database or Redis):
 
    ```yaml
    services:
