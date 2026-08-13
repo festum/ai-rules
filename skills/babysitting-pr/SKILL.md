@@ -59,11 +59,7 @@ Use this skill when the user has an open pull request and wants the agent to mon
    - If the fix is clear (typo, naming, missing null check, style issue), apply it.
    - If the comment requires a design decision or clarification, skip it and report to the user.
 
-   Commit fixes for resolved comments:
-
-   ```bash
-   git add -A && git commit -m "fix: address review feedback" && git push
-   ```
+   Commit to use /writing-commit-messages skill.
 
 5. **Resolve merge conflicts** — if the PR has conflicts:
 

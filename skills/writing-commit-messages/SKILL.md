@@ -14,13 +14,11 @@ Write commit messages that are useful for humans and machines.
 <type>(<optional scope>): <subject>
 
 <optional body>
-
-<optional footer>
 ```
 
 ### Subject Line Rules
 
-- **50 characters or less** for the subject
+- **15 words or less** for the subject
 - Use imperative mood: "add feature" not "added feature" or "adding feature"
 - Don't capitalize the first letter after the type prefix
 - No period at the end
@@ -57,17 +55,7 @@ Explain **why**, not what (the diff shows what):
 fix(checkout): prevent duplicate order submissions
 
 The submit button was not disabled after the first click,
-allowing users to create multiple orders. This caused
-duplicate charges in Stripe.
-```
-
-### Footer (When Needed)
-
-```
-BREAKING CHANGE: rename `getUserById` to `findUser`
-
-Closes #456
-Co-authored-by: Name <email>
+allowing users to create multiple orders. This caused duplicate charges in Stripe.
 ```
 
 ## Examples

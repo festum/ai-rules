@@ -2,7 +2,7 @@
 
 Synchronize AI coding rules across Windsurf, Cursor, VS Code, Cline, GitHub Copilot, and Aider.
 
-## 🚀 Quick Setup
+## Quick Setup
 
 ```bash
 # Clone this repo
@@ -14,12 +14,13 @@ chmod +x scripts/setup.sh
 ./scripts/setup.sh              # Setup both rules and skills
 ```
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 ai-rules/
-├── ai_rules/
-│   └── master-rules.md          # Master rules + Superpowers methodology
+├── system/
+│   ├── rules.md                  # Shared rules (SSOT)
+│   └── sticky_rules.md           # OMP sticky rules
 ├── skills/
 │   └── <skill-name>/SKILL.md    # One folder per skill
 ├── scripts/
@@ -29,31 +30,40 @@ ai-rules/
 └── LICENSE
 ```
 
-## 🎯 What Gets Set Up
+## What Gets Set Up
 
-### Editor Rules (symlinks)
+### Editor Rules (symlinks from `system/rules.md`)
 - **Windsurf**: `~/.codeium/windsurf/memories/global_rules.md`
 - **Cursor**: `~/.cursor/memories/global_rules.md`
-- **Claude**: `~/.claude/memories/global_rules.md`
+- **Claude**: `~/.claude/CLAUDE.md`
 - **Codex**: `~/.codex/memories/global_rules.md`
-
-### VS Code Extensions (symlinks)
 - **Continue**: `~/.continue/rules/ai-rules.md`
 - **GitHub Copilot**: `~/.github/copilot-instructions.md`
+- **Opencode**: `~/.config/opencode/AGENTS.md`
+- **Zed**: `~/.config/zed/AGENTS.md`
+- **Home**: `~/AGENTS.md`
+- **OMP**: `~/.omp/agent/AGENTS.md`
+- **OMP sticky**: `~/.omp/agent/RULES.md` ← `system/sticky_rules.md`
 
-### Skills (symlinks)
-The entire `skills/` folder is symlinked into every supported tool, so every skill is available everywhere:
+### Skills ownership
+Two layers:
+
+1. **Repo skills** (`ai-rules/skills/`): per-skill symlinks into each agent skills dir. Never whole-folder symlink, so runtime-owned skills (e.g. GSD) can live beside them.
+2. **Downloaded shared packs** (golang / Anthropic / Superpowers): real files live in `~/.agents/skills/<name>`; Claude / Cursor / Opencode / Hermes / pi only get symlinks to that.
+
+Agent skill dirs:
+- **Agents (canonical store)**: `~/.agents/skills`
 - **Cursor**: `~/.cursor/skills`
-- **Agents**: `~/.agents/skills`
 - **Claude**: `~/.claude/skills`
-- **Opencode**: `~/.opencode/skills`
+- **Opencode**: `~/.opencode/skills` and `~/.config/opencode/skills`
 - **Hermes**: `~/.hermes/skills`
+- **pi**: `~/.pi/agent/skills`
 
-## 📝 Daily Workflow
+## Daily Workflow
 
 1. **Edit rules:**
    ```bash
-   vim ai_rules/master-rules.md
+   vim system/rules.md
    ```
 
 2. **Update skills (if needed):**
@@ -61,43 +71,55 @@ The entire `skills/` folder is symlinked into every supported tool, so every ski
    ./scripts/setup.sh skills
    ```
 
-3. **Changes are immediately available in all editors!**
+3. **Shared skill edits are live via per-skill links.** `./scripts/setup.sh skills` also installs external packs (currently `cc-skills-golang` via `npx skills`). GSD stays managed by its own installer.
 
-## 🔧 Available Commands
+## Available Commands
 
 ```bash
-./scripts/setup.sh              # Setup both rules and skills (default)
-./scripts/setup.sh rules        # Setup editor rules only
-./scripts/setup.sh skills       # Setup skills only
+./scripts/setup.sh              # Setup/update both rules and skills (default)
+./scripts/setup.sh rules        # Setup/update editor rules only
+./scripts/setup.sh skills       # Setup/update skills + external packs
+./scripts/setup.sh update       # Alias for skills (refresh everything)
 ./scripts/setup.sh help         # Show help
 ```
 
-## 📋 Skills
+Safe to re-run. Later runs refresh ai-rules skill links, git submodules, `cc-skills-golang`, selective Anthropic skills, selective Superpowers, and GSD.
 
-Each skill is a folder under `skills/` with a `SKILL.md` (Superpowers methodology, personal workflow skills, and language-specific skill packs all live side by side). To add or change a skill, edit its `SKILL.md` directly — the change is live in every tool immediately, no re-run of `setup.sh` needed.
+`rules` / `skills` / `all` first pull git submodules when `git` and network are available (`git submodule update --init --recursive --remote`). Offline or no-git environments skip that step and continue.
 
-## 🗑️  Cleanup
+`skills` / `all` then install external packs outside `ai-rules/skills` (canonical store = `~/.agents/skills`, others symlink):
+- **cc-skills-golang**: `npx skills add https://github.com/samber/cc-skills-golang -g --all` → flattened `golang-*` in `~/.agents/skills`, then linked out
+- **Anthropic skills (selective)**: sync selected skills from `anthropics/skills` into `~/.agents/skills` (not full pack; lifestyle example dirs stay Claude-owned)
+- **Superpowers (selective)**: sync 10 skills from `obra/superpowers` into `~/.agents/skills` (not the full 14-skill plugin)
+- **GSD**: `npx @opengsd/gsd-core --<runtime> --global --profile=full` for `claude`, `cursor`, `pi`, `hermes`, `opencode` (runtime-owned; not stored under `~/.agents/skills`)
+
+## Skills
+
+Each skill is a folder under `skills/` with a `SKILL.md` (or a nested skill pack). Edit the skill in this repo, then run `./scripts/setup.sh skills` if a new skill directory was added. Existing per-skill links stay live. Go skills come from the external installer above, not from this repo.
+
+## Cleanup
 
 ```bash
 # Remove editor rule symlinks
 rm ~/.codeium/windsurf/memories/global_rules.md
 rm ~/.cursor/memories/global_rules.md
-rm ~/.claude/memories/global_rules.md
+rm ~/.claude/CLAUDE.md
 rm ~/.codex/memories/global_rules.md
 rm ~/.continue/rules/ai-rules.md
 rm ~/.github/copilot-instructions.md
 rm ~/.config/opencode/AGENTS.md
+rm ~/.config/zed/AGENTS.md
+rm ~/AGENTS.md
+rm ~/.omp/agent/AGENTS.md
+rm ~/.omp/agent/RULES.md
 
-# Remove skill symlinks
-rm ~/.cursor/skills
-rm ~/.agents/skills
-rm ~/.claude/skills
-rm ~/.opencode/skills
-rm ~/.hermes/skills
-
-# Restore from .bak files if they exist
+# Remove only ai-rules skill links (keep agent-owned skills such as gsd-*)
+for d in ~/.cursor/skills ~/.agents/skills ~/.claude/skills ~/.opencode/skills ~/.config/opencode/skills ~/.hermes/skills ~/.pi/agent/skills; do
+  [ -d "$d" ] || continue
+  find "$d" -maxdepth 1 -type l -lname "$PWD/skills/*" -delete
+done
 ```
 
-## 📄 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.

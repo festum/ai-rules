@@ -1,6 +1,6 @@
 ---
 name: parallel-code-review
-description: Run four parallel read-only subagents that each review the same diff from a different lens — security, performance, correctness, and readability — then merge findings into one report. Use before merging large or risky PRs.
+description: Run four parallel read-only subagents that each review the same diff from a different lens — security, performance, correctness, and readability — then merge findings into one report. Use before merging large or risky PRs. Also pulled by reviewing-github-pr for teammate PR reviews.
 user-invocable: true
 ---
 
@@ -13,6 +13,7 @@ Use Cursor’s **Task** tool to run **four** `explore` (read-only) subagents at 
 - Large diffs or refactors where a single pass misses categories.
 - Security-sensitive changes (auth, payments, parsing untrusted input).
 - Performance-sensitive paths (hot loops, N+1 queries, bundle entry points).
+- Called by `reviewing-github-pr` as the multi-lens code pass for teammate GitHub PRs.
 
 ## Workflow
 
@@ -93,12 +94,15 @@ The main agent should:
 2. Order by severity, then by fix cost.
 3. Produce a short executive summary (5 bullets max) and a table or list of actionable items.
 
-### 4. Optional — address findings
+When invoked from `reviewing-github-pr`, return the merged findings to that skill — do not post comments from this skill.
 
-Fix in the main agent or spawn targeted **non-readonly** follow-up tasks only for approved items.
+### 4. Optional — address findings (own work only)
+
+On **your own** change set: fix in the main agent or spawn targeted **non-readonly** follow-up tasks only for approved items.
 
 ## Notes
 
 - Keep prompts **read-only** so parallel runs never fight over writes.
 - If the diff is huge, split by directory and run four reviewers **per directory** in a second wave — do not cram unrelated megadiffs into one pass.
 - This complements human review; it does not replace compliance or security sign-off for regulated environments.
+- Direction: `reviewing-github-pr` → `parallel-code-review`. Not the reverse.

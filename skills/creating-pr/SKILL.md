@@ -15,7 +15,6 @@ Package work into a pull request that's easy to review and merge.
 Before creating the PR:
 
 ```bash
-# Ensure branch is up to date with base
 git fetch origin
 git rebase origin/main  # or merge, depending on project convention
 
@@ -28,13 +27,13 @@ Squash fixup commits if the project prefers clean history. Keep logical commits 
 
 Personal convention: if the branch is behind the base branch, auto pull/merge `main` and resolve conflicts without asking.
 
-Commit message rules (personal):
+Commit message rules:
 - Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), ≤15 words, scope optional.
-- Do not add `Co-Authored-By: Claude` trailer.
+- Do not add `Co-Authored-By: XYZ` trailer.
 
 ### 2. Write the Title
 
-Format: `<type>: <short description>`
+Format: `<ticket_id_if_exists> <type>: <short description>`
 
 | Type | When |
 |------|------|
@@ -53,38 +52,16 @@ Examples:
 
 ### 3. Write the Description
 
-Use this structure:
-
-```markdown
-## Summary
-
-1-3 sentences explaining what this PR does and why.
-
-Closes #123
-
-## Changes
-
-- Added `ThemeToggle` component with system/light/dark options
-- Updated `Layout` to read theme from context
-- Added theme persistence to localStorage
-
-## Test Plan
-
-- [ ] Toggle between light/dark/system themes
-- [ ] Refresh page — theme persists
-- [ ] Check no flash of unstyled content on load
-```
-
-Personal convention (overrides the above): if the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@secilozdemir`) and the Jira ticket (`ON-XXXX`).
+If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@secilozdemir`) and the Jira ticket (`ON-XXXX`).
 
 ### 4. Self-Review
 
 Before requesting review:
-- Read every line of the diff yourself
-- Remove debug code (`console.log`, `TODO`, commented-out code)
-- Verify tests pass: `npm test`
-- Verify types: `npx tsc --noEmit`
-- Verify lint: `npm run lint`
+- Review every line of the diff
+- Remove debug code (`console.log`, `TODO`, commented-out code, comments)
+- Verify tests pass
+- Verify types
+- Verify lint
 - Check for files that shouldn't be committed (`.env`, lockfile conflicts)
 
 Personal convention: before committing, also run coverage checks and the `TF plan and apply DEV from branch (manual)` GitHub Action (if exists) to deploy and verify integration tests pass in DEV.
@@ -94,14 +71,10 @@ Personal convention: before committing, also run coverage checks and the `TF pla
 ```bash
 git push -u origin HEAD
 gh pr create --title "<title>" --body "$(cat <<'EOF'
-## Summary
-...
+<.github/pull_request_template.md>
 
-## Changes
-...
+<very_brief_summary>
 
-## Test Plan
-...
 EOF
 )"
 ```

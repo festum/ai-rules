@@ -1,34 +1,49 @@
 ---
 name: reviewing-github-pr
-description: Review a teammate's GitHub PR against its Jira spec, present numbered findings for approval before posting, and reply to PR threads in a clean human style.
+description: Review a teammate's GitHub PR against its Jira spec. Gather context, run parallel-code-review, produce numbered findings with draft comments, ask which to post, then post only approved items via gh.
 user-invocable: true
 ---
 
 # Reviewing a GitHub PR
 
-Use when asked to review someone else's pull request.
+Use when asked to review **someone else's** pull request.
 
-Review with a code-review mindset: bugs, behavioral regressions, security issues, and missing tests are the priority, ordered by severity. Do not make code changes yourself unless explicitly asked. Pull in the `requesting-code-review` skill and the brainstorming skill for extra context gathering (the `/brainstorm` slash command is deprecated — use the brainstorming skill instead).
+Do **not** change code unless explicitly asked. Do **not** post comments until the user picks which findings to publish.
+
+## Hard rules
+
+1. Read the linked Jira ticket (and its attached docs) before judging the PR. Spec first.
+2. Review priority: **consistency → business logic → code quality**.
+3. Run `parallel-code-review` for the multi-lens code pass, then merge with spec findings.
+4. Present numbered findings + draft comments; post only what the user selects.
+5. Post with `gh` only. No MCP / web UI / raw API for PR comments.
+6. Write comments with `eng` (then `humanizer`). No AI markers. No code changes in already-approved PRs unless the issue is severe and the user confirms.
 
 ## Workflow
 
-1. Find the Jira link from the PR description or branch name; read the acceptance criteria, requirements, and edge cases. Digging into the documents in the Jira ticket is mandatory before reviewing the PR.
-2. Read the PR diff and code in related repos for full context.
-3. Review as a senior engineer across the project and related repos. Priority order: consistency > business logic > code quality — use the `reviewing-code` skill's checklist (correctness, maintainability, performance, type safety, testing) for the code-quality pass.
-4. Flag any spec mismatch or missing requirement from the Jira ticket.
-5. Number every finding. Present the numbered list with a draft reply for each (concise, professional English) and ask the user which ones to post.
-6. Before posting a new inline comment, check existing threads for the same issue — reply there instead of duplicating; resolve threads the author already acknowledged.
-7. Post only the findings the user selects, at the matching file/line.
-8. After posting, approve the PR if there are no blockers; leave a `"testing approved"` general comment if there is nothing else to add.
+1. **Spec** — Find the Jira key from the PR body or branch. Read acceptance criteria, requirements, edge cases, and linked docs.
+2. **Diff** — Read the PR diff and enough related-repo context to judge consistency. Build the changed-file list for reviewers.
+3. **Parallel review** — Pull and run `parallel-code-review` on that change set (security / performance / correctness / readability). Keep it read-only; do not post from subagents.
+4. **Merge judgment** — Combine Jira/spec gaps + consistency notes + parallel findings. Priority remains consistency → business logic → code quality. Severity: `blocker` / `important` / `nit`.
+5. **Draft** — Number every finding. For each: short rationale + draft English comment (or thread reply). Ask which numbers to post.
+6. **Dedupe** — Before posting, check existing threads. Prefer reply-in-thread over a new inline comment. Resolve threads the author already fixed/acknowledged.
+7. **Post** — Publish only selected items at the matching file/line via `gh`.
+8. **Close out** — If no blockers remain after posting: approve. If nothing material to say: leave a short `"testing approved"` general comment.
 
-## CI Status
+## CI
 
-`validate-and-record-change` job failures are not CI failures — they only mean the PR isn't approved yet. Ignore this job when judging CI health.
+Ignore `validate-and-record-change` failures when judging CI health. That job is an approval gate (often empty Functional tester), not a code-quality check.
 
-## Comment Style
+## Comment style
 
-- Post with `gh` CLI only — no web UI, no raw API calls.
-- One reply per thread, ever — cover every point in that single reply.
-- Plain English, short and factual — no "I think/feel", no long paragraphs.
-- Never prefix comments with "AI Review" or any AI marker; write like a human reviewer.
-- Attach code snippets or screenshots when they clarify the point.
+- One reply per thread; cover every point in that single reply.
+- Very short, factual English. Lead with the conclusion.
+- Prefer team shorthand when unambiguous (`WG`, `GL`, `sync`, `tx`, `config`, …).
+- Attach a snippet/screenshot only when it clarifies the point.
+- Never prefix with “AI Review” or similar.
+
+## Related skills
+
+- `parallel-code-review` — required multi-lens pass (step 3). Direction: `reviewing-github-pr` → `parallel-code-review`.
+- Your own work before merge: `requesting-code-review`.
+- New design / product exploration: `brainstorming` only when the review turns into designing something new.

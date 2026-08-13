@@ -1,3 +1,6 @@
-[submodule "skills/cc-skills-golang"]
-	path = skills/cc-skills-golang
-	url = git@github.com:samber/cc-skills-golang.git
+[submodule "skills/task-observer"]
+	path = skills/task-observer
+	url = https://github.com/rebelytics/one-skill-to-rule-them-all.git
+[submodule "skills/humanizer"]
+	path = skills/humanizer
+	url = https://github.com/blader/humanizer.git
