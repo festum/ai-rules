@@ -49,7 +49,8 @@ ai-rules/
 Two layers:
 
 1. **Repo skills** (`ai-rules/skills/`): per-skill symlinks into each agent skills dir. Never whole-folder symlink, so runtime-owned skills (e.g. GSD) can live beside them.
-2. **Downloaded shared packs** (golang / Anthropic / Superpowers): real files live in `~/.agents/skills/<name>`; Claude / Cursor / Opencode / Hermes / pi only get symlinks to that.
+2. **Downloaded shared packs** (golang / Anthropic / Superpowers / selective awesome-cursor-skills / selective ECC / humanizer / task-observer): real files live in `~/.agents/skills/<name>`; Claude / Cursor / Opencode / Hermes / pi only get symlinks to that.
+3. **`omp` skill**: Hermes + OpenClaw only (`~/.hermes/skills`, `~/.openclaw/skills`); not linked into coding agents.
 
 Agent skill dirs:
 - **Agents (canonical store)**: `~/.agents/skills`
@@ -58,6 +59,7 @@ Agent skill dirs:
 - **Opencode**: `~/.opencode/skills` and `~/.config/opencode/skills`
 - **Hermes**: `~/.hermes/skills`
 - **pi**: `~/.pi/agent/skills`
+- **OpenClaw**: `~/.openclaw/skills`
 
 ## Daily Workflow
 
@@ -83,7 +85,7 @@ Agent skill dirs:
 ./scripts/setup.sh help         # Show help
 ```
 
-Safe to re-run. Later runs refresh ai-rules skill links, git submodules, `cc-skills-golang`, selective Anthropic skills, selective Superpowers, and GSD.
+Safe to re-run. Later runs refresh ai-rules skill links, git submodules (if any), `cc-skills-golang`, selective Anthropic / Superpowers / awesome-cursor / ECC skills, humanizer, task-observer, and GSD.
 
 `rules` / `skills` / `all` first pull git submodules when `git` and network are available (`git submodule update --init --recursive --remote`). Offline or no-git environments skip that step and continue.
 
@@ -91,11 +93,15 @@ Safe to re-run. Later runs refresh ai-rules skill links, git submodules, `cc-ski
 - **cc-skills-golang**: `npx skills add https://github.com/samber/cc-skills-golang -g --all` → flattened `golang-*` in `~/.agents/skills`, then linked out
 - **Anthropic skills (selective)**: sync selected skills from `anthropics/skills` into `~/.agents/skills` (not full pack; lifestyle example dirs stay Claude-owned)
 - **Superpowers (selective)**: sync 10 skills from `obra/superpowers` into `~/.agents/skills` (not the full 14-skill plugin)
+- **awesome-cursor-skills (selective)**: sync 7 skills from `spencerpauly/awesome-cursor-skills` (`parallel-*`, `setting-up-ci`, `setting-up-terraform`, `codebase-onboarding`) into `~/.agents/skills` (not the full pack)
+- **humanizer**: sync `blader/humanizer` into `~/.agents/skills/humanizer` (not a git submodule)
+- **task-observer**: sync `rebelytics/one-skill-to-rule-them-all` into `~/.agents/skills/task-observer` (not a git submodule)
+- **ECC (selective)**: sync `token-budget-advisor` from `affaan-m/ECC` into `~/.agents/skills` (not the full pack)
 - **GSD**: `npx @opengsd/gsd-core --<runtime> --global --profile=full` for `claude`, `cursor`, `pi`, `hermes`, `opencode` (runtime-owned; not stored under `~/.agents/skills`)
 
 ## Skills
 
-Each skill is a folder under `skills/` with a `SKILL.md` (or a nested skill pack). Edit the skill in this repo, then run `./scripts/setup.sh skills` if a new skill directory was added. Existing per-skill links stay live. Go skills come from the external installer above, not from this repo.
+Each skill is a folder under `skills/` with a `SKILL.md` (or a nested skill pack). Edit the skill in this repo, then run `./scripts/setup.sh skills` if a new skill directory was added. Existing per-skill links stay live. Go / Anthropic / Superpowers / selective awesome-cursor / selective ECC / humanizer / task-observer come from the external installer above, not from this repo. Local `humanizer-ref` / `humanizer-zh` stay in `ai-rules/skills`.
 
 ## Cleanup
 

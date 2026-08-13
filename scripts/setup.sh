@@ -59,6 +59,9 @@ Notes:
     - External packs (cc-skills-golang) are installed/updated via \`npx skills\`.
     - Selective Superpowers skills sync/update from obra/superpowers (not full plugin).
     - Selective Anthropic skills sync/update from anthropics/skills (not full pack).
+    - Selective awesome-cursor-skills sync/update from spencerpauly/awesome-cursor-skills (not full pack).
+    - humanizer + task-observer sync from upstream repos into \`~/.agents/skills\` (not git submodules).
+    - Selective ECC skills sync/update from affaan-m/ECC (not full pack).
     - GSD is installed/updated at the end via \`npx @opengsd/gsd-core\` (full profile).
 EOF
 }
@@ -108,6 +111,32 @@ ANTHROPICS_SKILLS=(
     webapp-testing
     xlsx
 )
+
+# Selective skills from spencerpauly/awesome-cursor-skills (resources/). Not the full pack.
+AWESOME_CURSOR_REPO="https://github.com/spencerpauly/awesome-cursor-skills.git"
+AWESOME_CURSOR_CACHE="$HOME/.cache/ai-rules/awesome-cursor-skills"
+AWESOME_CURSOR_SKILLS=(
+    parallel-ci-triage
+    parallel-code-review
+    parallel-exploring
+    parallel-test-fixing
+    setting-up-ci
+    setting-up-terraform
+    codebase-onboarding
+)
+
+# Selective skills from affaan-m/ECC (skills/). Not the full ECC pack.
+ECC_REPO="https://github.com/affaan-m/ECC.git"
+ECC_CACHE="$HOME/.cache/ai-rules/ecc"
+ECC_SKILLS=(
+    token-budget-advisor
+)
+
+# Single-skill upstream repos (SKILL.md at repo root). Not kept as ai-rules submodules.
+HUMANIZER_REPO="https://github.com/blader/humanizer.git"
+HUMANIZER_CACHE="$HOME/.cache/ai-rules/humanizer"
+TASK_OBSERVER_REPO="https://github.com/rebelytics/one-skill-to-rule-them-all.git"
+TASK_OBSERVER_CACHE="$HOME/.cache/ai-rules/task-observer"
 
 # Check shared rules file exists
 if [ ! -f "$RULES" ]; then
@@ -257,12 +286,38 @@ link_skills_into() {
     fi
 
     local skill_path
+    local non_coding_target=0
+    local nc
+    for nc in "${NON_CODING_SKILL_LINK_TARGETS[@]}"; do
+        if [ "$target" = "$nc" ]; then
+            non_coding_target=1
+            break
+        fi
+    done
+
     for skill_path in "$SKILLS_DIR"/*/; do
         [ -d "$skill_path" ] || continue
         local skill
         skill=$(basename "$skill_path")
         # Accept top-level SKILL.md or nested skill packs
         if [ ! -f "$skill_path/SKILL.md" ] && [ ! -d "$skill_path/skills" ]; then
+            continue
+        fi
+
+        # omp (and friends) are Hermes/OpenClaw only — skip coding agent dirs
+        local only_nc=0
+        local s
+        for s in "${NON_CODING_ONLY_SKILLS[@]}"; do
+            if [ "$skill" = "$s" ]; then
+                only_nc=1
+                break
+            fi
+        done
+        if [ "$only_nc" -eq 1 ] && [ "$non_coding_target" -eq 0 ]; then
+            if [ -L "$target/$skill" ]; then
+                rm "$target/$skill"
+                print_warning "$editor: removed non-coding-only skill $skill"
+            fi
             continue
         fi
 
@@ -375,6 +430,17 @@ AGENT_SKILL_LINK_TARGETS=(
     "$HOME/.config/opencode/skills"
     "$HOME/.hermes/skills"
     "$HOME/.pi/agent/skills"
+)
+
+# Non-coding agents only (Hermes / OpenClaw). Coding agents must not get these skills.
+NON_CODING_SKILL_LINK_TARGETS=(
+    "$HOME/.hermes/skills"
+    "$HOME/.openclaw/skills"
+)
+
+# Repo skills that link only into NON_CODING_SKILL_LINK_TARGETS.
+NON_CODING_ONLY_SKILLS=(
+    omp
 )
 
 # Symlink named skills from ~/.agents/skills into every agent skill dir.
@@ -647,6 +713,212 @@ install_anthropics_skills() {
     fi
 }
 
+
+# Sync selected skills from spencerpauly/awesome-cursor-skills (resources/).
+# Not kept inside ai-rules/skills — same ownership model as Superpowers/Anthropic.
+install_awesome_cursor_skills() {
+    echo -e "${BLUE}✨ Updating selective awesome-cursor-skills...${NC}"
+
+    if ! command -v git >/dev/null 2>&1; then
+        print_warning "git not available; skipping awesome-cursor-skills"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$AWESOME_CURSOR_CACHE")"
+    if [ ! -d "$AWESOME_CURSOR_CACHE/.git" ]; then
+        if ! network_available; then
+            print_warning "Network unavailable and no awesome-cursor-skills cache; skipping"
+            return 0
+        fi
+        print_info "Cloning spencerpauly/awesome-cursor-skills into cache..."
+        if ! git clone --depth 1 "$AWESOME_CURSOR_REPO" "$AWESOME_CURSOR_CACHE"; then
+            print_warning "awesome-cursor-skills clone failed; continuing setup"
+            return 0
+        fi
+    elif network_available; then
+        print_info "Updating awesome-cursor-skills cache..."
+        if ! git -C "$AWESOME_CURSOR_CACHE" fetch --depth 1 origin HEAD \
+            || ! git -C "$AWESOME_CURSOR_CACHE" reset --hard FETCH_HEAD; then
+            print_warning "awesome-cursor-skills cache update failed; continuing with existing cache"
+        fi
+    else
+        print_warning "Network unavailable; re-syncing awesome-cursor-skills from existing cache"
+    fi
+
+    local agents_skills="$HOME/.agents/skills"
+    mkdir -p "$agents_skills"
+
+    local skill
+    local synced=0
+    local missing=0
+    for skill in "${AWESOME_CURSOR_SKILLS[@]}"; do
+        local src="$AWESOME_CURSOR_CACHE/resources/$skill"
+        if [ ! -d "$src" ] || [ ! -f "$src/SKILL.md" ]; then
+            print_warning "Upstream awesome-cursor skill missing: $skill"
+            missing=$((missing + 1))
+            continue
+        fi
+
+        local dest="$agents_skills/$skill"
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        cp -a "$src"/. "$dest"/
+        synced=$((synced + 1))
+    done
+
+    # Real files stay in ~/.agents/skills; other agents get symlinks only.
+    link_shared_skills_from_agents "${AWESOME_CURSOR_SKILLS[@]}"
+
+    if [ "$synced" -gt 0 ]; then
+        print_status "awesome-cursor-skills up to date: $synced in ~/.agents/skills (missing=$missing)"
+    else
+        print_warning "No awesome-cursor-skills synced; continuing setup"
+    fi
+}
+
+
+# Clone/update a single-skill upstream repo and copy into ~/.agents/skills/<name>.
+# Repo root must contain SKILL.md. Extra rsync excludes can be passed after cache path.
+# Args: skill_name repo_url cache_path [rsync-exclude-patterns...]
+sync_single_skill_repo() {
+    local skill="$1"
+    local repo="$2"
+    local cache="$3"
+    shift 3
+    local excludes=("$@")
+
+    echo -e "${BLUE}📥 Updating $skill...${NC}"
+
+    if ! command -v git >/dev/null 2>&1; then
+        print_warning "git not available; skipping $skill"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$cache")"
+    if [ ! -d "$cache/.git" ]; then
+        if ! network_available; then
+            print_warning "Network unavailable and no $skill cache; skipping"
+            return 0
+        fi
+        print_info "Cloning $skill into cache..."
+        if ! git clone --depth 1 "$repo" "$cache"; then
+            print_warning "$skill clone failed; continuing setup"
+            return 0
+        fi
+    elif network_available; then
+        print_info "Updating $skill cache..."
+        if ! git -C "$cache" fetch --depth 1 origin HEAD \
+            || ! git -C "$cache" reset --hard FETCH_HEAD; then
+            print_warning "$skill cache update failed; continuing with existing cache"
+        fi
+    else
+        print_warning "Network unavailable; re-syncing $skill from existing cache"
+    fi
+
+    if [ ! -f "$cache/SKILL.md" ]; then
+        print_warning "Upstream $skill missing SKILL.md at repo root; skipping"
+        return 0
+    fi
+
+    local agents_skills="$HOME/.agents/skills"
+    local dest="$agents_skills/$skill"
+    mkdir -p "$agents_skills"
+    rm -rf "$dest"
+    mkdir -p "$dest"
+
+    if command -v rsync >/dev/null 2>&1; then
+        local rsync_args=(-a --delete --exclude .git --exclude .DS_Store)
+        local ex
+        for ex in "${excludes[@]}"; do
+            rsync_args+=(--exclude "$ex")
+        done
+        rsync "${rsync_args[@]}" "$cache"/ "$dest"/
+    else
+        # Fallback without rsync: copy then strip .git / excludes
+        cp -a "$cache"/. "$dest"/
+        rm -rf "$dest/.git" "$dest/.DS_Store"
+        local ex
+        for ex in "${excludes[@]}"; do
+            rm -rf "$dest"/$ex
+        done
+    fi
+
+    link_shared_skills_from_agents "$skill"
+    print_status "$skill up to date in ~/.agents/skills"
+}
+
+install_humanizer() {
+    sync_single_skill_repo "humanizer" "$HUMANIZER_REPO" "$HUMANIZER_CACHE"
+}
+
+install_task_observer() {
+    # Upstream marketing images are large and unused by the skill runtime.
+    sync_single_skill_repo "task-observer" "$TASK_OBSERVER_REPO" "$TASK_OBSERVER_CACHE" \
+        "*.png" "*.jpg" "*.jpeg" "*.webp"
+}
+
+# Sync selected skills from affaan-m/ECC (skills/). Not the full pack.
+# Not kept inside ai-rules/skills — same ownership model as Superpowers/Anthropic.
+install_ecc_skills() {
+    echo -e "${BLUE}🧮 Updating selective ECC skills...${NC}"
+
+    if ! command -v git >/dev/null 2>&1; then
+        print_warning "git not available; skipping ECC skills"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$ECC_CACHE")"
+    if [ ! -d "$ECC_CACHE/.git" ]; then
+        if ! network_available; then
+            print_warning "Network unavailable and no ECC cache; skipping"
+            return 0
+        fi
+        print_info "Cloning affaan-m/ECC into cache..."
+        if ! git clone --depth 1 "$ECC_REPO" "$ECC_CACHE"; then
+            print_warning "ECC clone failed; continuing setup"
+            return 0
+        fi
+    elif network_available; then
+        print_info "Updating ECC cache..."
+        if ! git -C "$ECC_CACHE" fetch --depth 1 origin HEAD \
+            || ! git -C "$ECC_CACHE" reset --hard FETCH_HEAD; then
+            print_warning "ECC cache update failed; continuing with existing cache"
+        fi
+    else
+        print_warning "Network unavailable; re-syncing ECC skills from existing cache"
+    fi
+
+    local agents_skills="$HOME/.agents/skills"
+    mkdir -p "$agents_skills"
+
+    local skill
+    local synced=0
+    local missing=0
+    for skill in "${ECC_SKILLS[@]}"; do
+        local src="$ECC_CACHE/skills/$skill"
+        if [ ! -d "$src" ] || [ ! -f "$src/SKILL.md" ]; then
+            print_warning "Upstream ECC skill missing: $skill"
+            missing=$((missing + 1))
+            continue
+        fi
+
+        local dest="$agents_skills/$skill"
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        cp -a "$src"/. "$dest"/
+        synced=$((synced + 1))
+    done
+
+    # Real files stay in ~/.agents/skills; other agents get symlinks only.
+    link_shared_skills_from_agents "${ECC_SKILLS[@]}"
+
+    if [ "$synced" -gt 0 ]; then
+        print_status "ECC skills up to date: $synced in ~/.agents/skills (missing=$missing)"
+    else
+        print_warning "No ECC skills synced; continuing setup"
+    fi
+}
+
 # External/runtime packs that must not live in ai-rules/skills.
 install_external_skills() {
     echo -e "${BLUE}📦 Updating external skill packs...${NC}"
@@ -655,6 +927,14 @@ install_external_skills() {
     install_anthropics_skills
     echo ""
     install_superpowers
+    echo ""
+    install_awesome_cursor_skills
+    echo ""
+    install_ecc_skills
+    echo ""
+    install_humanizer
+    echo ""
+    install_task_observer
     echo ""
     install_gsd
 }
@@ -677,6 +957,7 @@ setup_skills() {
         "opencode"
         "opencode-config"
         "hermes"
+        "openclaw"
         "pi"
     )
     EDITOR_SKILLS_PATHS=(
@@ -686,12 +967,21 @@ setup_skills() {
         "$HOME/.opencode/skills"
         "$HOME/.config/opencode/skills"
         "$HOME/.hermes/skills"
+        "$HOME/.openclaw/skills"
         "$HOME/.pi/agent/skills"
     )
 
     local i
     for i in "${!EDITOR_NAMES[@]}"; do
         link_skills_into "${EDITOR_NAMES[$i]}" "${EDITOR_SKILLS_PATHS[$i]}"
+    done
+
+    # Drop renamed legacy skill links (oc -> omp)
+    for path in "${EDITOR_SKILLS_PATHS[@]}"; do
+        if [ -L "$path/oc" ] || [ -e "$path/oc" ]; then
+            rm -rf "$path/oc"
+            print_warning "Removed legacy oc link from $path"
+        fi
     done
 
     echo ""
@@ -707,7 +997,7 @@ setup_skills() {
     echo ""
     echo -e "${BLUE}🔄 Re-run anytime to update everything:${NC}"
     echo "  $0 skills   # or: $0 update"
-    echo "  Updates: ai-rules skill links + submodules + golang + Anthropic skills + Superpowers + GSD"
+    echo "  Updates: ai-rules skill links + submodules + golang + Anthropic + Superpowers + awesome-cursor + ECC + humanizer + task-observer + GSD"
 }
 
 # Main command handling

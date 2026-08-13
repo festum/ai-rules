@@ -14,10 +14,10 @@ Do **not** change code unless explicitly asked. Do **not** post comments until t
 
 1. Read the linked Jira ticket (and its attached docs) before judging the PR. Spec first.
 2. Review priority: **consistency → business logic → code quality**.
-3. Run `parallel-code-review` for the multi-lens code pass, then merge with spec findings.
+3. Run `/parallel-code-review` for the multi-lens code pass, then merge with spec findings.
 4. Present numbered findings + draft comments; post only what the user selects.
 5. Post with `gh` only. No MCP / web UI / raw API for PR comments.
-6. Write comments with `eng` (then `humanizer`). No AI markers. No code changes in already-approved PRs unless the issue is severe and the user confirms.
+6. Write comments with `/eng`. No AI markers. No code changes in already-approved PRs unless the issue is severe and the user confirms.
 
 ## Workflow
 
@@ -44,6 +44,6 @@ Ignore `validate-and-record-change` failures when judging CI health. That job is
 
 ## Related skills
 
-- `parallel-code-review` — required multi-lens pass (step 3). Direction: `reviewing-github-pr` → `parallel-code-review`.
-- Your own work before merge: `requesting-code-review`.
-- New design / product exploration: `brainstorming` only when the review turns into designing something new.
+- `/parallel-code-review` — required multi-lens pass (step 3). Direction: `/reviewing-github-pr` → `parallel-code-review`. That skill returns findings only — do not post GitHub comments from it; draft/ask/`gh` stay here.
+- Your own work before merge: `/requesting-code-review`.
+- New design / product exploration: `/brainstorming` only when the review turns into designing something new.
