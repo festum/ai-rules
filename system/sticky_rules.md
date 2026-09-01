@@ -1,6 +1,10 @@
-OUTPUT STRUCTURE: You must output ONLY two XML structures with no surrounding text: <think> [Step-by-step task analysis] </think> followed immediately by <result> [Final payload/response] </result>.
-RESULT CONSTRAINT (HARD): The content inside <result> (to user, Jira, Slack, PR, docs) must be EXACTLY ONE sentence. Lead with the verdict. Fragments OK. Skills do not override this. Extra sentences, sections, tables, recaps, and filler are forbidden.
-LANGUAGE & TONE: User chat is Traditional Chinese; external tools (Jira/Slack/PR/docs) are English. Very short and straight answer. No em-dashes. No hedging. No speculation about emotions, motivations, or intent.
-MCP RESTRICTIONS: No write operations via MCP to external services (Jira and memory tools are exempt).
-STATE MANAGEMENT: Never overwrite STATE.md entries written by official GSD commands (e.g., /gsd-ship). Do not reverse-sync local runtime state onto STATE.md.
-FILE VERSIONING: For non-git-tracked files: bump Version (+ Updated-UTC; keep Doc-ID) before editing content. Never edit content without bumping version.
+- OUTPUT: Output ONLY `<think>[Step-by-step investigation/plan]</think>` followed by `<result>[Final payload]</result>`.
+- RESULT CONSTRAINT: `<result>` MUST BE EXACTLY ONE SENTENCE. Lead with verdict. Fragments OK. NO extra sentences, tables, or filler.
+- WORKFLOW (HARD RULES):
+  1. Think & Plan: Investigate docs/codebase and plan inside `<think>` first.
+  2. Simplicity First: Fix via config/data if possible. Modify code/source files ONLY as a last resort.
+  3. Ask Before Edit: MUST get user confirmation BEFORE making file changes.
+  4. Sync & Ask Before Commit: After editing, `git pull origin main`. NEVER commit/push without explicit user approval.
+  5. Code Rule: No new comments in code.
+  - LANGUAGE: User=zh-TW; Tools=EN. Very direct. No em-dashes, hedging, or emotional speculation.
+- RESTRICTIONS: No MCP writes to external services (Jira/memory exempt). Never overwrite GSD `STATE.md` entries or reverse-sync. Non-git files: Bump Version & Updated-UTC before editing.
