@@ -1,15 +1,54 @@
 ---
 name: jira-do
-description: 查看、設計、更新、執行 Jira ticket
+description: 查看、設計、執行 Jira ticket，建立 PR 並處理後續 Review 評論
 user-invocable: true
+allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, create-pr
 ---
 
-查看、閱讀用戶給你的Jira ticket，使用MCP或用技能`jira-actions`看ticket的內容，並根據 ticket 內容去相關 repo 跟文件找出相關前後文，全面正確理解後做任務的設計、更新(如果原Ticket寫的不完整)、執行相關的任務。
-確認規格後，動手改之前先看過最相關的既有邏輯：共用 function、authorization/converter 這類語意相近的集中點，優先找有沒有現成的地方可以掛，而不是先假設要在每個呼叫點各加一次。
-使用GSD技能做整套的實作與測試。
-實作過程中若發現同一段邏輯要在第二個地方重複加一次，先停下來，那是訊號：該邏輯可能該往上收斂到共用的地方（例如轉換層、shared function），不要繼續複製貼上到第三、第四個地方。
-相關任務的實施務必先 pull main branch，然後開啟新 branch，名字則用Ticket number (如: on-9999)，然後開始實作。
-任何改動必須要在本地測試通過/lint通過後再進行commit，而commit message 必須遵循 https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13，且不得超過20字，還有不得放任何`Co-Authored-By`。
-Commit前必須在使用三次深度Code Review檢查並模擬其他人可能會做的評論，並針對回饋做修改。
-在Push前請先徵求用戶許可，許可後pull main branch，並解決所有衝突後再push，Push完立刻建立PR。
-建立PR必須使用技能`create-pr`。PR的title、description、linked issues、reviewers都要符合規範。如果要放description，只放非常精簡的英文summary，且不要有任何段落，不要放任何AI標記。
+查看並理解 Jira ticket (經 `jira-actions` 或 MCP)，結合 Codebase/PRD/PR 評論前後文完成任務設計、執行、PR 建立與後續 Review 修正。
+
+## 優先順序與原則
+1. 他人 Review 評論 >= Jira Ticket > PRD（PRD 視為可能過期，矛盾時以 Jira + 評論 + 現有實作爲準）。
+2. 最小變更與架構收斂：優先重用既有邏輯（如共用轉換層、shared function）。若發現同一邏輯需要在第二處重複編寫，必須立即停下來向上收斂，禁止複製貼上。
+3. 不做 Out of scope 變更，也不做非必要 refactoring。
+4. 狀態延續與重複呼叫：此技能可能被多次呼叫（特別是在階段 4）。重複執行時不重複已完成的步驟（如建立分支、重複建立 PR），但每次執行皆需重新載入 Jira ticket 確認是否有最新更新。
+
+## 執行流程
+
+### 1. 準備與分支
+- 重新載入或讀取 Jira Ticket 並補全缺漏規格。
+- 使用內建 `plan` 進行任務拆解，並以 `todo` 追蹤執行狀態。
+- 若尚未建立分支，執行 `git pull origin main` 後建立 worktree 分支 `on-<ticket-number>`；若已在對應分支則直接延續。
+
+### 2. 實作與驗證
+- 實作前先審視既有共用邏輯，使用 `todo` 規劃任務。
+- CLI 完整驗證：實作與修復後，必須使用 CLI 跑過所有 lint 與測試，確保本地 pass，保障 Push 後 CI/CD pipeline 必然不會失敗。
+- 嚴格自檢：反覆進行自我 Code Review，主動找出潛在漏洞與疏漏，切勿擅自認為程式碼已經正確。
+
+### 3. 人類確認、Push 與 PR 建立
+- 將修改成果交給人類做最終確認。必須等到人類明確指示「push」後才可進行 Commit 與 Push。
+- 獲許 Push 後：
+  - 執行 `git pull origin main` 並 merge main，若有衝突先解決（衝突解決一律以本分支修改為主）。
+  - 將這批所有修改整理並合併為單一 commit。
+  - Commit 規範：遵循 Conventional Commits、長度 <20 字、嚴禁包含 `Co-Authored-By`。
+- 使用 `create-pr` 建立 PR：Title/Reviewers/Linked issues 需合規與用模版；Description 僅留極簡單段英文 Summary，無 AI 標記。
+
+### 4. PR Review 評論處理
+- 收集與規劃：
+  - 重新載入 Jira ticket 檢查是否有最新更新。
+  - 讀取 `pr://<number>` 收集所有 review threads 與 comments。
+  - 檢查既有 `todo` 與 `plan`，跳過已完成項目，僅針對新增或未處理之評論與更新進行規劃。
+  - 交叉比對 Jira 與 PRD，若 PRD 矛盾於 `todo` 標記 `PRD-stale`；超出 Jira 範圍者標記 `deferred` 不於此 PR 實作。
+  - 使用內建 `plan` 拆解評論修復任務，並以 `todo` 追蹤與管理執行狀態。
+- 執行修改與 Push：
+  - 使用 `edit` 進行修正，優先重用既有邏輯，不做不必要的抽象。
+  - 補齊修復範圍對應的單元或整合測試。
+  - 使用 CLI 跑過所有 lint 與測試，確保本地 pass，保障 Push 後 CI/CD 不會失敗。
+  - 反覆做自我 Code Review，確認無漏洞後，交給人類做最終確認。
+  - 人類指示「push」後，pull/merge main 並解衝突（以本分支為主），將該批修復內容整理為單一 commit 後 push。
+- 回覆規範：
+  - 先檢查既有留言，已回覆過的 thread 嚴禁新增留言，僅編輯既有內容。
+  - 每 thread 限回一次，內容限制 1~15 個英文單字（如 `Fixed as suggested.` / `No, out of scope.`）。
+  - 嚴禁中文、長篇解釋與道歉贅詞。
+  - 請用人類語氣，使用技能 `eng` 產生簡短英文回覆。
+  - 不要擅自將 thread 標記成 resolved。
