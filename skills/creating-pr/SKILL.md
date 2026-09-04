@@ -52,7 +52,7 @@ Examples:
 
 ### 3. Write the Description
 
-If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@secilozdemir`) and the Jira ticket (`ON-XXXX`).
+If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@mohitchandna-ppro`) and the Jira ticket (`ON-XXXX`).
 
 ### 4. Self-Review
 

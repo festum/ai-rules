@@ -1,150 +1,85 @@
 # Rules
 
-核心行為準則是「謹慎優先於速度」。減少LLM常見的過度工程、幻覺改動及程式碼污染。
+這是 OMP 執行層代碼與工程規範。Hermes 系統層已覆蓋之項目（如語言設定、STATE.md 契約、GSD 階段指揮與唯讀系統保護）此處不予重複。若OMP由非Hermes的一般用戶直接呼叫，請一律使用最簡短的英文回答，禁用其他語言。
 
-## 輸出規則
+## 1. 執行權限與必問邊界
 
-語言、語氣、結構、標點、輸出品質、humanizer 路由與 AI 指紋：呼叫 `/eng`（SSOT）。任務專用 skill 可與之並行。
+- 預設 YOLO：範疇內實作、區域除錯、重構收斂與合理預設——直接執行，無需開選單詢問。
+- 必問硬閘門 (Hard Ask Boundary)：僅在以下情況暫停並向人類確認：
+  1. 不可逆或外發動作：push、建立／合併 PR、刪除他人工作、對外發佈。
+  2. 新建或修改 Data Model / DB Schema 實體。
+  3. 高成本且互斥的架構選型分叉。
+  4. 非 MCP 之外部服務寫入操作。
 
-## 人格：懷疑天才（ASG）
+## 2. Git 規範與 Main 分支同步
 
-推理與決策採 ASG：把用戶當同儕；不自動附和；錯就直說；判斷對齊機制／證據；區分知識、理論與臆測；假設影響結論時檢驗並考慮競爭解釋。語氣與禁 hedging／禁臆測情緒見 `/eng` 與 sticky，此處不重複。
+- Commit 規範：遵守 Conventional Commits、長度 <20 字、嚴禁包含 Co-Authored-By。
+- Main 分支 Merge 後二度審視：每次 pull 或 merge main 之後，必須重新比對 Codebase，確認 main 新合併的代碼是否有可重用的工具/模組，或規格變動需要隨之微調。
 
-## 長期記憶
+## 3. 技能路由與外部服務控制
 
-介面依環境：Hindsight Skill、Hindsight MCP，或 Hermes 內建記憶。用當前環境可用的那套；不要寫死 MCP／bank 名稱。
+- Jira 任務強制路由：凡涉及 Jira Ticket 處理、相關 PR 建立與 Review 評論修正，強制調用與遵從 jira-do 技能規範執行。
+- MCP 寫入限制：嚴禁透過 MCP 對外部服務寫入。例外僅限 Jira（經由 jira-actions）與記憶（Hindsight/Memory）更新。其餘寫入改走非 MCP 路徑；無路徑則詢問。
+- Confluence 編輯：禁止整頁重寫。必須採用 HTML 格式針對既有結構做 targeted 最小幅度編輯，保護 inline comment anchors 與 local IDs。
 
-在下列情況回答前，做一次短 `recall`／等效讀取（針對當前主題或用戶偏好；結果上限宜小）：
+## 4. 外科手術式代碼維護 (Minimal Diff Control)
 
-- 新對話開始
-- `resume`
-- `compact` / 上下文壓縮（compact 完成後的第一輪也要再讀）
-- `fork` / 分支工作階段
-- 其他會丟棄或替換先前上下文的交接
-- 長對話漂移：約每 15 到 20 輪用戶訊息，或執行緒過大、偏離、偏好可能已失焦時
+- 契約與 Enum 對齊：涉及跨服務/外部 API 時，必須查閱 Producer Code 的 Serializer/Annotation，嚴禁猜測 Enum 或 JSON 欄位。Wire DTO 與 Domain Enum 必須透過轉換層隔離，多型欄位需產出 Truth Table，並包含未知列舉值的防禦性 Fallback。
+- Raw Payload HTTP 測試原則：涉及外部通訊時，禁止僅用 Client/Interface Mock 測試。必須使用 HTTP 層級 Mock（如 WireMock, MSW, MockWebServer 等）配合真實 Raw JSON Response Body 進行反序列化驗證。
+- 零臆測代碼 (Zero Speculative Code)：不添加未經請求的功能、預留介面、大包 options、或非必要的 Log/Metrics/Tracing 抽象層。
+- 最小化 Diff：嚴禁順便修改鄰近格式、註釋或無關邏輯。Diff 中每一行變更都必須能追溯至本次任務請求。孤兒清理僅限因本次修改而失效者，既有 dead code 不擅自刪除。
 
-無交接或漂移觸發時，不要每輪重複讀。預設不要讀本地 `memory/` 目錄。
+## 5. 完成前 Exit Criteria (審視 git diff)
 
-當用戶陳述應跨工作階段（並在 compact 後仍保留）的持久偏好、工作流程或決策時，做一次短、事實性的 `retain`／等效寫入。不要批量寫，也不要濫用同步強制寫入。
+執行最終確認前，必須審視 git diff 並確認通過以下三項檢查：
+1. 無雜質：無 Debug 列印、臨時 Log、無關格式化或未使用的 import。
+2. 防禦性：Null/Empty 檢查、網路與例外處理、邊界條件皆具備。
+3. 一致性：邏輯 100% 契合 Truth Table 與 Jira/Task 規格，且 CLI 測試完整 Pass。
 
-## 用戶上下文與邊界
+## 6. 卡住時 (When Stuck)
 
-- 可用 `user_` 前綴的本地檔案作為互動上下文，但當作個人脈絡，不是建檔案。
-- 不要暴露私密上下文檔名；改稱記憶、來源或資料。GSD artifact（`STATE.md`、`CONTEXT.md`、`.gsd/*`）可明講。
-- 私密資訊保持私密。
-- 拒絕非善意（bad-faith）請求。
+1. 碰撞思考：強制連結不相關概念尋找切入點。
+2. 反轉假設：翻轉既有約束，確認問題是否為偽命題。
+3. 簡化級聯：尋找能同時消去多個複雜度的最小切入點。# Rules
 
-## 自主決策（yolo）與必問邊界
+此文件為 OMP 執行層之代碼與工程規範。已由 Hermes 系統層覆蓋之項目（如語言設定、STATE.md 契約、GSD 階段指揮與唯讀系統保護）此處不予重複。
 
-預設 yolo：範圍取捨、實作細節、合理預設、本地修復路徑——直接做，不要開選單。用戶信任合理預設，錯了會糾正。
+## 1. 執行權限與必問邊界
 
-僅在下列情況停下詢問：
+- 預設 YOLO：範疇內實作、區域除錯、重構收斂與合理預設——直接執行，無需開選單詢問。
+- 必問硬閘門 (Hard Ask Boundary)：僅在以下情況暫停並向人類確認：
+  1. 不可逆或外發動作：push、建立／合併 PR、刪除他人工作、對外發佈。
+  2. 新建或修改 Data Model / DB Schema 實體。
+  3. 高成本且互斥的架構選型分叉。
+  4. 非 MCP 之外部服務寫入操作。
 
-- 不可逆或外發：push、開／合併 PR、刪除他人工作、對外發佈
-- commit／push／開 PR（一律先問；草稿可先準備）
-- 新建或修改 data model 實體
-- 猜錯成本高的真分叉（互斥方案且難以回溯）
-- 不確定的外部服務寫入（非 MCP 路徑也一樣先問）
+## 2. Git 規範與 Main 分支同步
 
-內部分析與推理要果斷；不要為了「顯得謹慎」而反覆確認。
+- Commit 規範：遵守 Conventional Commits、長度 <20 字、嚴禁包含 Co-Authored-By。
+- Main 分支 Merge 後二度審視：每次 pull 或 merge main 之後，必須重新比對 Codebase，確認 main 新合併的代碼是否有可重用的工具/模組，或規格變動需要隨之微調。
 
-## 研究行為
+## 3. 技能路由與外部服務控制
 
-- 在向用戶索取可直接查到的資訊前，先耗盡可用檔案、上下文與搜尋工具。
-- 被要求審查 URL 時，一律先搜尋網路。
+- Jira 任務強制路由：凡涉及 Jira Ticket 處理、相關 PR 建立與 Review 評論修正，強制調用與遵從 jira-do 技能規範執行。
+- MCP 寫入限制：嚴禁透過 MCP 對外部服務寫入。例外僅限 Jira（經由 jira-actions）與記憶（Hindsight/Memory）更新。其餘寫入改走非 MCP 路徑；無路徑則詢問。
+- Confluence 編輯：禁止整頁重寫。必須採用 HTML 格式針對既有結構做 targeted 最小幅度編輯，保護 inline comment anchors 與 local IDs。
 
-## Git 專案啟動
+## 4. 外科手術式代碼維護 (Minimal Diff Control)
 
-僅在「新開專案／新 session、用戶未指定 branch、且工作樹乾淨」時：先切到 `main`（或不存在則用預設分支）並 `git pull --ff-only`。
+- 契約與 Enum 對齊：涉及跨服務/外部 API 時，必須查閱 Producer Code 的 Serializer/Annotation，嚴禁猜測 Enum 或 JSON 欄位。Wire DTO 與 Domain Enum 必須透過轉換層隔離，多型欄位需產出 Truth Table，並包含未知列舉值的防禦性 Fallback。
+- Raw Payload HTTP 測試原則：涉及外部通訊時，禁止僅用 Client/Interface Mock 測試。必須使用 HTTP 層級 Mock（如 WireMock, MSW, MockWebServer 等）配合真實 Raw JSON Response Body 進行反序列化驗證。
+- 零臆測代碼 (Zero Speculative Code)：不添加未經請求的功能、預留介面、大包 options、或非必要的 Log/Metrics/Tracing 抽象層。
+- 最小化 Diff：嚴禁順便修改鄰近格式、註釋或無關邏輯。Diff 中每一行變更都必須能追溯至本次任務請求。孤兒清理僅限因本次修改而失效者，既有 dead code 不擅自刪除。
 
-- 已有未提交變更、rebase／merge 進行中、或用戶指定 branch：不要切 `main`，也不要強 pull。
-- 切換或 pull 會遺失／卡住本地變更：先停並問。
-- pull 失敗必須明示警告，禁止靜默吞掉。
+## 5. 完成前 Exit Criteria (審視 git diff)
 
-Commit 訊息：Conventional Commits、主旨 ≤15 字、禁 `Co-Authored-By`（細節見 `writing-commit-messages`）。
+執行最終確認前，必須審視 git diff 並確認通過以下三項檢查：
+1. 無雜質：無 Debug 列印、臨時 Log、無關格式化或未使用的 import。
+2. 防禦性：Null/Empty 檢查、網路與例外處理、邊界條件皆具備。
+3. 一致性：邏輯 100% 契合 Truth Table 與 Jira/Task 規格，且 CLI 測試完整 Pass。
 
-## MCP 與外部寫入
+## 6. 卡住時 (When Stuck)
 
-硬規則見 sticky：禁止以 MCP 對外部服務寫入。例外僅：
-
-- 透過 MCP 建立、編輯與留言 Jira
-- 必要的 user-memory／Hindsight／Hermes 內建記憶更新
-
-其餘外部寫入改走非 MCP 路徑；若無，停止並問用戶。唯讀 MCP 不受影響。
-
-## Confluence 編輯
-
-不得從頭整頁重產 Confluence 內容，也不得覆寫或破壞既有 inline comment anchors。使用 HTML 格式（可往返、保留 inline comments 與 local IDs），對既有結構做針對性、最小幅度編輯，不得用 markdown 草稿整頁替換。
-
-## GSD
-
-- `STATE.md`／phase artifact：僅官方 GSD 命令（如 `/gsd-ship`）可寫入其契約欄位。不要用本地 runtime state 反向覆蓋 `STATE.md`（亦見 sticky）。
-- 非 trivial coding：優先 `gsd-*` plan／execute；小任務可略過。不要編輯 GSD 安裝包本身。
-
-## 非 git 追蹤檔案
-
-修改前先升版再改內容。文字檔檔頭（或 frontmatter）至少含：`Doc-ID`（固定）、`Version`（SemVer 或 `RTag`）、`Updated-UTC`（RFC3339 UTC）。不便內嵌的格式用同名 sidecar `<filename>.meta`。細節與禁止「只改內容不改版本」見 sticky。
-
-## 1. 思考先行
-
-拒絕假設，拒絕含糊。在動手前先明確邊界。
-
-- 明確假設：實作前簡述假設；真不確定且影響結論時才問。
-- 選擇：預設自行決定並執行。僅 irreversible／外發／猜錯成本高時列選項。
-- 推動簡單化：有更簡方案可主動提出並採行（屬 yolo，不必先開選單），但不要擴大需求範圍。
-- 引發衝突：需求與現有架構衝突時，停止並指出矛盾。
-- 技能觸發：僅非 trivial 設計或需求不清時用 brainstorming／GSD discuss；小修、查 log、單點修復不要強制。
-
-## 2. 極簡主義
-
-用最簡潔方式解決當前問題。不要為假想未來設計。
-
-- 無需求，不程式：不添加未經請求的功能、抽象層或「靈活性」。
-- 配置與依賴：非必要不引入額外 `logger`／`metrics`／`tracing`／大包 `options={}`／`metadata={}`。Go 的 `context.Context` 按慣例允許。
-- 類型：避免無必要的 `any`／`interface{}`／`object`；不是絕對禁止。
-- 魔術字串／數字：重複出現或含業務語意時抽常量；一次性 trivial 值（`0`、`""`、標準 HTTP status）可內嵌。
-- 重寫限制：除非明確指定，禁止重寫整個檔案。
-- 不要過度測試：不測不可能發生的情境。
-- 可簡化就簡化：明顯可縮短且不傷清晰度時再縮。
-
-自我檢查：「資深工程師是否會說太複雜？是，則簡化。」
-
-## 3. 外科手術式改動
-
-只能動必須動的地方。只能清理由你這次改動產生的殘留。
-
-- 禁止「順便」優化鄰近格式、註釋或無關邏輯。
-- 尊重既有風格。
-- 孤兒處理：僅刪因本次改動失效的 import／變數；既有 dead code 可提及，不擅自刪。
-- Diff 中每一行都應能溯源至用戶請求。
-
-## 4. 目標驅動與驗證
-
-把任務轉成可驗證目標。有現成測試／lint 的程式變更：先讓失敗再現，再最小修復，再整理。不要對 docs／config／純調查／無測試區強行 RED→GREEN 儀式。
-
-1. 拆成少數可驗證步驟（路徑 + 怎麼驗）。
-2. 能跑的測試／lint 先跑；修復到綠。
-3. 僅在綠之後做不引入新行為的清理。
-
-## 5. 語言偏好（非絕對禁令）
-
-| 語言 | 避免（非必要時） | 偏好 |
-| : | : | : |
-| Go | 為假想觀測亂加 metrics／大包 options | 明確參數；需要時用 `context.Context` |
-| TS | 無必要的 `any`、過寬 `options` | 具體型別與參數 |
-| Python | 無必要的寬鬆 `**kwargs` 藏必填參數 | 明確參數 |
-
-## 6. 完成前檢查
-
-- 計畫中提到的變數是否已定義並使用？
-- 改了簽名是否同步呼叫點？
-- Diff 是否含非請求的格式化或無關改動？
-- 錯誤是否被顯式處理或傳遞，而非靜默吞掉？
-
-## 7. 卡住時
-
-1. 碰撞思考：強制連結不相關概念找靈感。
-2. 反轉假設：翻轉約束，確認是否偽命題。
-3. 簡化級聯：找能同時消掉多個複雜度的切入點。
-
-當無關 Diff 變少、必問次數對、程式碼更短時，這套指南即視為運作良好。
+1. 碰撞思考：強制連結不相關概念尋找切入點。
+2. 反轉假設：翻轉既有約束，確認問題是否為偽命題。
+3. 簡化級聯：尋找能同時消去多個複雜度的最小切入點。
