@@ -20,7 +20,8 @@ chmod +x scripts/setup.sh
 ai-rules/
 ├── system/
 │   ├── rules.md                  # Shared rules (SSOT)
-│   └── sticky_rules.md           # OMP sticky rules
+│   ├── sticky_rules.md           # OMP sticky rules
+│   └── hermes.md                 # Hermes layer contract
 ├── skills/
 │   └── <skill-name>/SKILL.md    # One folder per skill
 ├── scripts/
@@ -44,6 +45,7 @@ ai-rules/
 - **Home**: `~/AGENTS.md`
 - **OMP**: `~/.omp/agent/AGENTS.md`
 - **OMP sticky**: `~/.omp/agent/RULES.md` ← `system/sticky_rules.md`
+- **Hermes**: `~/.hermes/SOUL.md` ← `system/hermes.md`
 
 ### Skills ownership
 Two layers:
@@ -118,6 +120,7 @@ rm ~/.config/zed/AGENTS.md
 rm ~/AGENTS.md
 rm ~/.omp/agent/AGENTS.md
 rm ~/.omp/agent/RULES.md
+rm ~/.hermes/SOUL.md
 
 # Remove only ai-rules skill links (keep agent-owned skills such as gsd-*)
 for d in ~/.cursor/skills ~/.agents/skills ~/.claude/skills ~/.opencode/skills ~/.config/opencode/skills ~/.hermes/skills ~/.pi/agent/skills; do

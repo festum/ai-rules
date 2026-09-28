@@ -28,7 +28,7 @@ Squash fixup commits if the project prefers clean history. Keep logical commits 
 Personal convention: if the branch is behind the base branch, auto pull/merge `main` and resolve conflicts without asking.
 
 Commit message rules:
-- Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), ≤15 words, scope optional.
+- Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), ≤18 words, scope optional.
 - Do not add `Co-Authored-By: XYZ` trailer.
 
 ### 2. Write the Title

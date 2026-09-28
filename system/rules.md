@@ -1,85 +1,67 @@
-# Rules
+# OMP Execution-Layer Rules
 
-這是 OMP 執行層代碼與工程規範。Hermes 系統層已覆蓋之項目（如語言設定、STATE.md 契約、GSD 階段指揮與唯讀系統保護）此處不予重複。若OMP由非Hermes的一般用戶直接呼叫，請一律使用最簡短的英文回答，禁用其他語言。
+Code and engineering rules for the OMP execution layer. Language settings, the STATE.md contract, GSD phase control, and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
 
-## 1. 執行權限與必問邊界
+When rules conflict, safety and explicit human instructions take priority, then this document.
 
-- 預設 YOLO：範疇內實作、區域除錯、重構收斂與合理預設——直接執行，無需開選單詢問。
-- 必問硬閘門 (Hard Ask Boundary)：僅在以下情況暫停並向人類確認：
-  1. 不可逆或外發動作：push、建立／合併 PR、刪除他人工作、對外發佈。
-  2. 新建或修改 Data Model / DB Schema 實體。
-  3. 高成本且互斥的架構選型分叉。
-  4. 非 MCP 之外部服務寫入操作。
+## 1. Execution Authority and Ask Boundaries
 
-## 2. Git 規範與 Main 分支同步
+- Default YOLO: implement in-scope work, local debugging, refactoring convergence, and reasonable defaults directly, without a menu prompt. Refactoring is limited to the current task's scope; no incidental refactoring.
+- Mandatory ask boundary (Hard Ask Boundary): pause and confirm with a human only in these cases:
+  1. Irreversible or outbound actions: push, creating or merging PRs, deleting others' branches or remote work, publishing externally.
+  2. Creating or modifying a Data Model / DB Schema entity.
+  3. A high-cost, mutually exclusive architecture fork (spanning multiple services, or requiring a large rewrite, with mutually exclusive alternatives).
+  4. Writing to an external service (MCP writes are covered in §3).
+- Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve.
+- Headless runs (`-p` / `--approval-mode=yolo`) have no interactive prompt. On an ask boundary, stop and emit `BLOCKED: <reason>` plus the authorization needed, and hand off to the upper layer or a human.
+- No Hermes: the default YOLO does not apply, and the ask boundary above applies to every action rather than only the four listed cases. Plan before executing; ask questions via a selectable menu.
 
-- Commit 規範：遵守 Conventional Commits、長度 <20 字、嚴禁包含 Co-Authored-By。
-- Main 分支 Merge 後二度審視：每次 pull 或 merge main 之後，必須重新比對 Codebase，確認 main 新合併的代碼是否有可重用的工具/模組，或規格變動需要隨之微調。
+## 2. Git Conventions and Main-Branch Sync
 
-## 3. 技能路由與外部服務控制
+- Commit conventions: follow Conventional Commits; subject (description) ≤18 words; no `Co-Authored-By`.
+- Push boundary: after implementing and verifying, wait for an explicit human "push" before committing and pushing.
+- Squash on push: at push time, squash all not-yet-pushed commits (everything ahead of the upstream branch, or ahead of main before the first push) into a single commit with a Conventional Commits message. Never rewrite commits that are already pushed.
+- Conflict resolution: when merging main, resolve conflicts in favor of this branch's changes.
+- Re-check after main merge: after every pull or merge of main, re-compare against the codebase to see whether newly merged main changes add reusable tools or modules, or change the spec in ways that need matching adjustments.
 
-- Jira 任務強制路由：凡涉及 Jira Ticket 處理、相關 PR 建立與 Review 評論修正，強制調用與遵從 jira-do 技能規範執行。
-- MCP 寫入限制：嚴禁透過 MCP 對外部服務寫入。例外僅限 Jira（經由 jira-actions）與記憶（Hindsight/Memory）更新。其餘寫入改走非 MCP 路徑；無路徑則詢問。
-- Confluence 編輯：禁止整頁重寫。必須採用 HTML 格式針對既有結構做 targeted 最小幅度編輯，保護 inline comment anchors 與 local IDs。
+## 3. Skill Routing and External-Service Control
 
-## 4. 外科手術式代碼維護 (Minimal Diff Control)
+- Mandatory Jira routing: any work on Jira tickets, related PR creation, or review-comment fixes must invoke and follow the jira-do skill. If the skill is unavailable, stop and report; do not substitute another process.
+- Mandatory PR routing: creating a PR always requires invoking and following the creating-pr skill, on top of any task-level skill (e.g. jira-do). If the skill is unavailable, stop and report; do not create the PR another way.
+- MCP write restriction: never write to external services through MCP. The only exceptions are Jira (via jira-actions) and memory (Hindsight/Memory) updates. Route all other writes through a non-MCP path; if none exists, stop and report.
+- Confluence editing: never rewrite a whole page. Edit the existing structure in HTML, minimally and targeted, preserving inline comment anchors and local IDs. If no non-MCP write path exists, stop and report.
 
-- 契約與 Enum 對齊：涉及跨服務/外部 API 時，必須查閱 Producer Code 的 Serializer/Annotation，嚴禁猜測 Enum 或 JSON 欄位。Wire DTO 與 Domain Enum 必須透過轉換層隔離，多型欄位需產出 Truth Table，並包含未知列舉值的防禦性 Fallback。
-- Raw Payload HTTP 測試原則：涉及外部通訊時，禁止僅用 Client/Interface Mock 測試。必須使用 HTTP 層級 Mock（如 WireMock, MSW, MockWebServer 等）配合真實 Raw JSON Response Body 進行反序列化驗證。
-- 零臆測代碼 (Zero Speculative Code)：不添加未經請求的功能、預留介面、大包 options、或非必要的 Log/Metrics/Tracing 抽象層。
-- 最小化 Diff：嚴禁順便修改鄰近格式、註釋或無關邏輯。Diff 中每一行變更都必須能追溯至本次任務請求。孤兒清理僅限因本次修改而失效者，既有 dead code 不擅自刪除。
+## 4. Surgical Code Maintenance (Minimal Diff Control)
 
-## 5. 完成前 Exit Criteria (審視 git diff)
+- Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. If the Producer repo is inaccessible, stop and report; do not guess from internal constant names.
+- Raw-payload HTTP testing: for external communication, do not test only with client or interface mocks. Use an HTTP-level mock (e.g. WireMock, MSW, MockWebServer) with real raw JSON response bodies to validate deserialization.
+- Zero speculative code: do not add unrequested features, placeholder interfaces, kitchen-sink options, or unnecessary Log/Metrics/Tracing abstraction layers.
+- Minimal diff: do not incidentally change nearby formatting, comments, or unrelated logic. Every changed line must trace to this task's request. Clean up orphaned code only when this change invalidates it; do not delete pre-existing dead code on your own.
 
-執行最終確認前，必須審視 git diff 並確認通過以下三項檢查：
-1. 無雜質：無 Debug 列印、臨時 Log、無關格式化或未使用的 import。
-2. 防禦性：Null/Empty 檢查、網路與例外處理、邊界條件皆具備。
-3. 一致性：邏輯 100% 契合 Truth Table 與 Jira/Task 規格，且 CLI 測試完整 Pass。
+## 5. Pre-Completion Exit Criteria
 
-## 6. 卡住時 (When Stuck)
+Before final confirmation, review the git diff (staged and unstaged) and confirm all three checks:
+1. No noise: no debug prints, temporary logs, unrelated formatting, or unused imports.
+2. Defensive: null/empty checks, network and exception handling, and boundary conditions are all present.
+3. Consistency: the logic matches the Truth Table and the Jira or task spec exactly, and the project's lint and test commands pass in full.
 
-1. 碰撞思考：強制連結不相關概念尋找切入點。
-2. 反轉假設：翻轉既有約束，確認問題是否為偽命題。
-3. 簡化級聯：尋找能同時消去多個複雜度的最小切入點。# Rules
+Reporting contract: end each verification round with a single line, `CLEAN` or `ISSUES: <list>`. When delivering results or a PR, use three lines: Done / Not done / Next.
 
-此文件為 OMP 執行層之代碼與工程規範。已由 Hermes 系統層覆蓋之項目（如語言設定、STATE.md 契約、GSD 階段指揮與唯讀系統保護）此處不予重複。
+## 6. When Stuck
 
-## 1. 執行權限與必問邊界
+1. Collision thinking: deliberately connect unrelated concepts to find an entry point.
+2. Reversal: flip the existing constraints and check whether the problem is a false one.
+3. Simplification cascade: find the smallest entry point that removes several complexities at once.
 
-- 預設 YOLO：範疇內實作、區域除錯、重構收斂與合理預設——直接執行，無需開選單詢問。
-- 必問硬閘門 (Hard Ask Boundary)：僅在以下情況暫停並向人類確認：
-  1. 不可逆或外發動作：push、建立／合併 PR、刪除他人工作、對外發佈。
-  2. 新建或修改 Data Model / DB Schema 實體。
-  3. 高成本且互斥的架構選型分叉。
-  4. 非 MCP 之外部服務寫入操作。
+If you still cannot make progress, or lack required information (Producer repo, spec, credentials), stop and report; do not guess and continue.
 
-## 2. Git 規範與 Main 分支同步
+## 7. Dependency and Degradation (No-Hermes Fallback)
 
-- Commit 規範：遵守 Conventional Commits、長度 <20 字、嚴禁包含 Co-Authored-By。
-- Main 分支 Merge 後二度審視：每次 pull 或 merge main 之後，必須重新比對 Codebase，確認 main 新合併的代碼是否有可重用的工具/模組，或規格變動需要隨之微調。
+This document assumes the Hermes system layer exists. When Hermes is absent, use these minimal substitutes for the items it covers:
+1. Language settings: converse in Traditional Chinese or English; use English for PRs, Jira, docs, and comments unless told otherwise.
+2. STATE.md contract: without STATE.md, git status and the todo list are the single source of truth for state.
+3. GSD phase control: without GSD, use the built-in plan and todo for breakdown and tracking.
+4. Read-only system protection: without Hermes, only the current working directory or its worktree is writable; any path outside the plan is read-only.
+5. OMP liveness: preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` ⇒ OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
 
-## 3. 技能路由與外部服務控制
-
-- Jira 任務強制路由：凡涉及 Jira Ticket 處理、相關 PR 建立與 Review 評論修正，強制調用與遵從 jira-do 技能規範執行。
-- MCP 寫入限制：嚴禁透過 MCP 對外部服務寫入。例外僅限 Jira（經由 jira-actions）與記憶（Hindsight/Memory）更新。其餘寫入改走非 MCP 路徑；無路徑則詢問。
-- Confluence 編輯：禁止整頁重寫。必須採用 HTML 格式針對既有結構做 targeted 最小幅度編輯，保護 inline comment anchors 與 local IDs。
-
-## 4. 外科手術式代碼維護 (Minimal Diff Control)
-
-- 契約與 Enum 對齊：涉及跨服務/外部 API 時，必須查閱 Producer Code 的 Serializer/Annotation，嚴禁猜測 Enum 或 JSON 欄位。Wire DTO 與 Domain Enum 必須透過轉換層隔離，多型欄位需產出 Truth Table，並包含未知列舉值的防禦性 Fallback。
-- Raw Payload HTTP 測試原則：涉及外部通訊時，禁止僅用 Client/Interface Mock 測試。必須使用 HTTP 層級 Mock（如 WireMock, MSW, MockWebServer 等）配合真實 Raw JSON Response Body 進行反序列化驗證。
-- 零臆測代碼 (Zero Speculative Code)：不添加未經請求的功能、預留介面、大包 options、或非必要的 Log/Metrics/Tracing 抽象層。
-- 最小化 Diff：嚴禁順便修改鄰近格式、註釋或無關邏輯。Diff 中每一行變更都必須能追溯至本次任務請求。孤兒清理僅限因本次修改而失效者，既有 dead code 不擅自刪除。
-
-## 5. 完成前 Exit Criteria (審視 git diff)
-
-執行最終確認前，必須審視 git diff 並確認通過以下三項檢查：
-1. 無雜質：無 Debug 列印、臨時 Log、無關格式化或未使用的 import。
-2. 防禦性：Null/Empty 檢查、網路與例外處理、邊界條件皆具備。
-3. 一致性：邏輯 100% 契合 Truth Table 與 Jira/Task 規格，且 CLI 測試完整 Pass。
-
-## 6. 卡住時 (When Stuck)
-
-1. 碰撞思考：強制連結不相關概念尋找切入點。
-2. 反轉假設：翻轉既有約束，確認問題是否為偽命題。
-3. 簡化級聯：尋找能同時消去多個複雜度的最小切入點。
+Execution authority is covered in §1.

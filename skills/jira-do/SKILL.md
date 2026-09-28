@@ -2,13 +2,13 @@
 name: jira-do
 description: 查看、設計、執行 Jira ticket，建立 PR 並處理後續 Review 評論
 user-invocable: true
-allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, create-pr
+allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, creating-pr
 ---
 
 查看並理解 Jira ticket (經 `jira-actions` 或 MCP)，結合 Codebase/PRD/PR 評論前後文完成任務設計、執行、PR 建立與後續 Review 修正。
 
 ## 優先順序與原則
-1. 權重順序：他人 Review 評論 >= Jira Ticket > PRD（PRD 視為可能過期，矛盾時以 Jira + 評論 + 現有實作爲準）。
+1. 權重順序：他人 Review 評論 > Jira Ticket > PRD（PRD 視為可能過期，矛盾時以 Jira + 評論 + 現有實作為準）。
 2. 跨服務 Contract 與 Enum Mapping 規範：
    - Wire DTO ≠ Domain Model：嚴禁對傳輸層 (Wire Payload) 原始字串直接進行列舉/Enum 強制轉型。必須經由專屬轉換層 (Mapper) 明確隔離外部傳輸協定與內部 Domain 邏輯。
    - 鎖定 Serialization 細節：查驗 Producer Code 時，必須確認 JSON 序列化定義（如 Annotation、Field Name、kebab-case / snake_case 轉換或 Enum Custom Text），嚴禁僅憑 Producer 內部的常數名稱猜測傳輸字串。
@@ -20,6 +20,7 @@ allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, c
 4. 最小變更與架構收斂：優先重用既有邏輯。每次 Pull/Merge Main 後，必須重新比對 Codebase，確認 Main 最新變更是否有新增可重用的共用工具，或規格調整需隨之同步。
 5. 範圍約束：不做 Out of scope 變更，也不做非必要 refactoring。
 6. 狀態延續與重複呼叫：此技能可能被多次呼叫。重複執行時不重複已完成的步驟（如建立分支、重複建立 PR），但每次執行皆需重新載入 Jira ticket 與 PR 評論確認最新狀態。
+7. Session 續用：任務中途的追問（含 PR commenter 以外的他人插問）直接以現有 session 回答，不重啟調查；用 runtime 的 session 續用（OMP `-c` / `-r`）延續上下文，唯有超出 session 理解範圍才重新調查。
 
 ## 執行流程
 
@@ -46,8 +47,8 @@ allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, c
   - 執行 `git pull origin main` 並 merge main，若有衝突先解決（衝突解決一律以本分支修改為主）。
   - Merge 後二度審視 (Main Code Re-evaluation)：檢視 main 新合併的變更，主動確認是否有多出重疊的新功能/共用 Module 可替代當前實作，或規格變動需微調程式碼。若有調整，需補跑 CLI 驗證 Pass。
   - 將這批所有修改整理並合併為單一 commit。
-  - Commit 規範：遵循 Conventional Commits、長度 <20 字、嚴禁包含 `Co-Authored-By`。
-- 建立 PR：使用 `create-pr` 建立 PR，Title/Reviewers/Linked issues 需合規與用模版；Description 僅留極簡單段英文 Summary，無 AI 標記。
+  - Commit 規範：遵循 Conventional Commits、長度 ≤18 words、嚴禁包含 `Co-Authored-By`。
+- 建立 PR：使用 `creating-pr` 建立 PR，Title/Reviewers/Linked issues 需合規與用模版；Description 僅留極簡單段英文 Summary，無 AI 標記。
 
 ### 4. PR Review 評論處理
 - 全域收集與真相對照：
@@ -68,12 +69,13 @@ allowed-tools: read, write, edit, grep, bash, github, todo, ask, jira-actions, c
      - Done：已落地的 commit/SHA 或修復項目
      - Not done：尚未完成的項目
      - Next：下一步與預估
-  4. 獲得人類指示「push」後，pull/merge main 並解衝突（以本分支為主）。
+  4. 獲得人類指示「push」後，pull & merge main 並解衝突（以本分支為主）。
   5. Merge 後二度審視 (Main Code Re-evaluation)：檢查 main 新新增的代碼是否有可重用的 component/helper 或規格異動，若有則立即修正並重新完成 CLI 驗證，最後將修復內容整理為單一 commit 後 push。
 - 回覆規範：
   - 僅回覆已百分百驗證的事實，尚待釐清者直說「去查驗 Producer Repo」，嚴禁過度承諾或搶先宣告完成。
   - 先檢查既有留言，已回覆過的 thread 嚴禁新增留言，僅編輯既有內容。
-  - 每 thread 限回一次，內容限制 1~15 個英文單字（如 `Fixed as suggested.` / `No, out of scope.`）。
-  - 嚴禁中文、長篇解釋、道歉贅詞、commit/SHA。
-  - 請用人類語氣，使用技能 `eng` 產生簡短英文回覆。
+  - 極度精簡：只給結論，其餘全刪。每 thread 限回一次，以最短為原則（通常 1~5 個英文單字，上限 1~12），如 `Fixed.` / `Done.` / `Out of scope.`。
+  - 不具體：不還原機制、不列檔案/行號/數值/原因，不重述 diff 或已知資訊；只講結論，不必講清楚細節。
+  - 嚴禁中文、長篇解釋、道歉贅詞、commit/SHA、重複資訊。
+  - 請用人類語氣，使用技能 `eng` 產生簡短英文回覆；與本規範衝突時以本規範為準。
   - 不要擅自將 thread 標記成 resolved。

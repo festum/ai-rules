@@ -67,7 +67,7 @@ Leads with the minor, already-fixed finding instead of the actual ask; the real 
 SSOT for GitHub review thread replies (author or reviewer). Team-thread register, not Public/technical.
 
 Accept / already fixed:
-- Outcome only. Prefer 3–10 words when nothing new needs arguing.
+- Outcome only. Prefer 1–12 words when nothing new needs arguing.
 - Good: `done` / `fixed` / `addressed` / `Fixed earlier.` / `Already handled.`
 - Bad: restating the mechanism visible in the diff (blah blah).
 

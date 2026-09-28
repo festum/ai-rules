@@ -71,6 +71,7 @@ SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 REPO_ROOT="$(realpath "$SCRIPT_DIR/..")"
 RULES="$REPO_ROOT/system/rules.md"
 STICKY_RULES="$REPO_ROOT/system/sticky_rules.md"
+HERMES_CONTRACT="$REPO_ROOT/system/hermes.md"
 SKILLS_DIR="$REPO_ROOT/skills"
 CC_SKILLS_GOLANG_REPO="https://github.com/samber/cc-skills-golang"
 GSD_CORE_PKG="@opengsd/gsd-core"
@@ -370,6 +371,11 @@ setup_rules() {
     else
         print_warning "Missing $STICKY_RULES; skipping ~/.omp/agent/RULES.md"
     fi
+    if [ -f "$HERMES_CONTRACT" ] && [ -d "$HOME/.hermes" ]; then
+        create_symlink "hermes" "$HERMES_CONTRACT" "$HOME/.hermes/SOUL.md"
+    else
+        print_warning "Missing $HERMES_CONTRACT or $HOME/.hermes; skipping Hermes contract link"
+    fi
 
     echo ""
     print_status "Editor rules setup complete!"
@@ -386,6 +392,7 @@ setup_rules() {
     echo "  ✅ Home: ~/AGENTS.md"
     echo "  ✅ OMP: ~/.omp/agent/AGENTS.md"
     echo "  ✅ OMP sticky: ~/.omp/agent/RULES.md <- system/sticky_rules.md"
+    echo "  ✅ Hermes: ~/.hermes/SOUL.md <- system/hermes.md"
     echo ""
     echo -e "${BLUE}🔄 To update rules:${NC}"
     echo "  Edit: $RULES"
@@ -428,9 +435,12 @@ AGENT_SKILL_LINK_TARGETS=(
     "$HOME/.claude/skills"
     "$HOME/.opencode/skills"
     "$HOME/.config/opencode/skills"
-    "$HOME/.hermes/skills"
-    "$HOME/.pi/agent/skills"
 )
+# ~/.hermes is Hermes-owned; only link into it when the install exists.
+if [ -d "$HOME/.hermes" ]; then
+    AGENT_SKILL_LINK_TARGETS+=("$HOME/.hermes/skills")
+fi
+AGENT_SKILL_LINK_TARGETS+=("$HOME/.pi/agent/skills")
 
 # Non-coding agents only (Hermes / OpenClaw). Coding agents must not get these skills.
 NON_CODING_SKILL_LINK_TARGETS=(
@@ -956,9 +966,6 @@ setup_skills() {
         "claude"
         "opencode"
         "opencode-config"
-        "hermes"
-        "openclaw"
-        "pi"
     )
     EDITOR_SKILLS_PATHS=(
         "$HOME/.cursor/skills"
@@ -966,10 +973,14 @@ setup_skills() {
         "$HOME/.claude/skills"
         "$HOME/.opencode/skills"
         "$HOME/.config/opencode/skills"
-        "$HOME/.hermes/skills"
-        "$HOME/.openclaw/skills"
-        "$HOME/.pi/agent/skills"
     )
+    # ~/.hermes is Hermes-owned; only link into it when the install exists.
+    if [ -d "$HOME/.hermes" ]; then
+        EDITOR_NAMES+=("hermes")
+        EDITOR_SKILLS_PATHS+=("$HOME/.hermes/skills")
+    fi
+    EDITOR_NAMES+=("openclaw" "pi")
+    EDITOR_SKILLS_PATHS+=("$HOME/.openclaw/skills" "$HOME/.pi/agent/skills")
 
     local i
     for i in "${!EDITOR_NAMES[@]}"; do

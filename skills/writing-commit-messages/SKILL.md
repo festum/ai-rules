@@ -18,7 +18,7 @@ Write commit messages that are useful for humans and machines.
 
 ### Subject Line Rules
 
-- **15 words or less** for the subject
+- **≤18 words** for the subject
 - Use imperative mood: "add feature" not "added feature" or "adding feature"
 - Don't capitalize the first letter after the type prefix
 - No period at the end
@@ -45,7 +45,7 @@ The area of the codebase affected:
 - `fix(api): handle null response from payments endpoint`
 - `refactor(db): extract query builder into module`
 
-**Personal convention (overrides the above):** follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), but omit the scope — `feat: add OAuth2 login flow`, not `feat(auth): ...`. Keep the subject to 15 words or fewer. Never add a `Co-Authored-By` trailer.
+**Personal convention (overrides the above):** follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), but omit the scope — `feat: add OAuth2 login flow`, not `feat(auth): ...`. Keep the subject to ≤18 words. Never add a `Co-Authored-By` trailer.
 
 ### Body (When Needed)
 
