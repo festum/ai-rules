@@ -23,8 +23,8 @@ Variables:
 ```json
 {
   "issueId": "<wiz-issue-uuid>",
-  "ticketId": "ON-2051",
-  "ticketUrl": "https://ppro.atlassian.net/browse/ON-2051"
+  "ticketId": "ABC-123",
+  "ticketUrl": "https://<your-tracker>/browse/ABC-123"
 }
 ```
 
@@ -32,10 +32,10 @@ Batch (aliases; keep ~8–10 per request):
 
 ```graphql
 mutation {
-  a0: associateServiceTicket(input: {issueId: "<id0>", ticketId: "ON-2051", ticketUrl: "https://ppro.atlassian.net/browse/ON-2051"}) {
+  a0: associateServiceTicket(input: {issueId: "<id0>", ticketId: "ABC-123", ticketUrl: "https://<your-tracker>/browse/ABC-123"}) {
     serviceTicket { id externalId }
   }
-  a1: associateServiceTicket(input: {issueId: "<id1>", ticketId: "ON-2051", ticketUrl: "https://ppro.atlassian.net/browse/ON-2051"}) {
+  a1: associateServiceTicket(input: {issueId: "<id1>", ticketId: "ABC-123", ticketUrl: "https://<your-tracker>/browse/ABC-123"}) {
     serviceTicket { id externalId }
   }
 }
@@ -56,7 +56,7 @@ mutation RequestScan($imageReference: String!) {
 Example `imageReference`:
 
 ```text
-harbor-registry.live.deven-di.ppro.com/jfrogcache/boarding-docker-prod/girolink-ui@sha256:<digest>
+<registry-host>/<project>/<image>@sha256:<digest>
 ```
 
 If schema returns a different payload shape, introspect or adjust selection set from API Console errors.

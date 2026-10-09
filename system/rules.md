@@ -1,6 +1,6 @@
 # OMP Execution-Layer Rules
 
-Code and engineering rules for the OMP execution layer. Language settings, the STATE.md contract, GSD phase control, and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
+Code and engineering rules for the OMP execution layer. Language settings and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
 
 When rules conflict, safety and explicit human instructions take priority, then this document.
 
@@ -18,17 +18,14 @@ When rules conflict, safety and explicit human instructions take priority, then 
 
 ## 2. Git Conventions and Main-Branch Sync
 
-- Commit conventions: follow Conventional Commits; subject (description) ≤18 words; no `Co-Authored-By`.
+- Follow the `git-commit` skill for commit messages, merging main (conflicts in favor of this branch, then re-check main for reusable modules or spec changes), squash on push, and safe stashing.
 - Push boundary: after implementing and verifying, wait for an explicit human "push" before committing and pushing.
-- Squash on push: at push time, squash all not-yet-pushed commits (everything ahead of the upstream branch, or ahead of main before the first push) into a single commit with a Conventional Commits message. Never rewrite commits that are already pushed.
-- Conflict resolution: when merging main, resolve conflicts in favor of this branch's changes.
-- Re-check after main merge: after every pull or merge of main, re-compare against the codebase to see whether newly merged main changes add reusable tools or modules, or change the spec in ways that need matching adjustments.
 
 ## 3. Skill Routing and External-Service Control
 
-- Mandatory Jira routing: any work on Jira tickets, related PR creation, or review-comment fixes must invoke and follow the jira-do skill. If the skill is unavailable, stop and report; do not substitute another process.
-- Mandatory PR routing: creating a PR always requires invoking and following the creating-pr skill, on top of any task-level skill (e.g. jira-do). If the skill is unavailable, stop and report; do not create the PR another way.
-- MCP write restriction: never write to external services through MCP. The only exceptions are Jira (via jira-actions) and memory (Hindsight/Memory) updates. Route all other writes through a non-MCP path; if none exists, stop and report.
+- Mandatory Jira routing: any work on Jira tickets, related PR creation, or review-comment fixes must invoke and follow the `ship` skill; plan-only work (plan, then review another agent's implementation) uses `delegate` instead. If the skill is unavailable, stop and report; do not substitute another process.
+- Mandatory PR routing: creating a PR always requires invoking and following the `open-pr` skill, on top of any task-level skill (e.g. `ship`). If the skill is unavailable, stop and report; do not create the PR another way.
+- MCP write restriction: never write to external services through MCP. The only exceptions are Jira and memory (Hindsight/Memory) updates. Route all other writes through a non-MCP path; if none exists, stop and report.
 - Confluence editing: never rewrite a whole page. Edit the existing structure in HTML, minimally and targeted, preserving inline comment anchors and local IDs. If no non-MCP write path exists, stop and report.
 
 ## 4. Surgical Code Maintenance (Minimal Diff Control)
@@ -59,9 +56,76 @@ If you still cannot make progress, or lack required information (Producer repo, 
 
 This document assumes the Hermes system layer exists. When Hermes is absent, use these minimal substitutes for the items it covers:
 1. Language settings: converse in Traditional Chinese or English; use English for PRs, Jira, docs, and comments unless told otherwise.
-2. STATE.md contract: without STATE.md, git status and the todo list are the single source of truth for state.
-3. GSD phase control: without GSD, use the built-in plan and todo for breakdown and tracking.
+2. State: shared task state per §8; the todo list is session-only.
+3. Plan control: without Hermes, use the built-in plan and todo for breakdown and tracking.
 4. Read-only system protection: without Hermes, only the current working directory or its worktree is writable; any path outside the plan is read-only.
 5. OMP liveness: preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` ⇒ OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
 
 Execution authority is covered in §1.
+
+## 8. Shared Task State
+
+One state folder per task at a neutral location, shared by every agent (Hermes, omp, Claude, Cursor, opencode). It survives worktree removal, session changes, and agent switches. The todo list and session files stay session-only; they are not shared state.
+
+Location: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/`
+
+### 8.1 Keys
+
+- With a ticket: the ticket ID (e.g. `ON-2278`). Jira keys stay as-is.
+- Git task without a ticket: `T-<YYYYMMDD>-<kebab-short-name>`, created by the first agent that acts. The branch name equals the key; when the agent creates the task it also creates the branch (or worktree) with that name.
+- Trackers whose numbers repeat across repos (e.g. GitHub Issues): key = `<repo>-<number>`, e.g. `pl-b-entity-42`.
+- A local-ID task that must open a PR: propose a formal ticket first (external write, wait for human approval). Once it exists, rename the folder to the ticket ID and record the old ID under `aliases` in STATE.md.
+- Non-git one-offs, Q&A, and config changes: create no folder.
+
+Finding an existing task, in order: the key, the current branch name, `aliases`, then every STATE.md `## Repos & worktrees` entry that contains the current working directory. The fallback scans cover only top-level folders and skip `_done/`. Only if none of those matches: create a new folder.
+
+### 8.2 Files
+
+- `STATE.md` — current state; may be overwritten whole.
+- `plan-v<N>.md` — delegate plans; add new versions only, never overwrite.
+- `log.md` — append-only, one line per event: `<UTC> <agent> <event>`.
+
+### 8.3 Timing
+
+- Before starting work on a task: read `STATE.md`, then check it against git, PR, and Jira.
+- Before ending each round: update `STATE.md` and append one line to `log.md`.
+- Interrupted mid-task: at least write Done / Not done / Next once.
+
+### 8.4 Who writes which section
+
+- `## Scope & constraints`: Hermes or a human only.
+- Executors may change only `## Status`, `## Verification`, `## Gates`, `## Sessions`, and the header lines status, updated, by.
+- Every write updates `updated` and `by`.
+- STATE.md disagrees with git, PR, or Jira: the external system wins. Correct STATE.md and append a `reconcile` line to `log.md`.
+
+### 8.5 Closeout
+
+- PR merged or task cancelled → move the folder to `_done/<YYYY>/<key>/` (year of closeout). Never delete automatically.
+- Never store secrets: no tokens, passwords, or MCP credentials.
+
+### 8.6 STATE.md template
+
+````markdown
+# <key> — <title>
+key: <key>   aliases: <old IDs or none>   ticket: <URL or none>
+repos: <repo>, <repo>
+status: <prepared|planned|reviewed|handed-off|in-progress|verified|delivered|pr-loop|blocked|done>
+updated: <UTC>   by: <hermes|omp|claude|cursor|opencode|human>
+
+## Scope & constraints   (Hermes/human only)
+## Repos & worktrees
+- <repo>  branch <branch>  worktree <path>  base <branch>
+## Status
+Done: …
+Not done: …
+Next: …
+## Verification
+- <UTC> <command or check> → CLEAN|ISSUES: …
+## Gates   (pending human decisions; BLOCKED reasons)
+## Sessions
+- omp: <session id> (<cwd>)   claude: <session id>   pr: <URL>
+## Plan
+current: plan-v<N>.md   (delegate only)
+````
+
+Find tasks touching a repo: `grep -l '^repos:.*\b<repo>\b' <state dir>/*/STATE.md`.

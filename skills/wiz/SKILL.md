@@ -1,5 +1,5 @@
 ---
-name: wiz-graphql
+name: wiz
 description: >-
   Use when running Wiz GraphQL writes/queries with browser session auth, Chrome CDP
   cookie refresh, associateServiceTicket, requestContainerImageScan, reassessIssue,
@@ -20,7 +20,7 @@ Agent-owned auth. **Never ask the user to export Cookie, source env, start Chrom
 4. POST GraphQL
 5. On 401/403 / GraphQL UNAUTHORIZED: ensure Chrome + CDP refresh once, retry
 
-Default endpoint: `https://api.eu16.app.wiz.io/graphql`
+Endpoint: set `WIZ_GQL_ENDPOINT` to your tenant's API URL (`https://api.<region>.app.wiz.io/graphql`); the scripts fall back to `eu16`.
 
 User only intervenes when SSO login is required the first time (or after logout) in the auto-started Chrome window.
 
@@ -29,9 +29,9 @@ User only intervenes when SSO login is required the first time (or after logout)
 Only call:
 
 ```bash
-python3 ~/.cursor/skills/wiz-graphql/scripts/wiz_gql.py --file /tmp/wiz.graphql
+python3 <skill-dir>/scripts/wiz_gql.py --file /tmp/wiz.graphql
 # or stdin:
-printf '%s' 'query { __typename }' | python3 ~/.cursor/skills/wiz-graphql/scripts/wiz_gql.py
+printf '%s' 'query { __typename }' | python3 <skill-dir>/scripts/wiz_gql.py
 ```
 
 Do **not** tell the user to run ensure/CDP/source commands.

@@ -1,9 +1,10 @@
 ---
-name: eng
+name: voice
 description: Use for every generated, rewritten, reviewed, or edited output in any language, medium, or format.
 user-invocable: true
 metadata:
-  version: "1.0.2"
+  version: "1.0.4"
+  updated-utc: "2026-10-09T15:18:46Z"
 ---
 
 # Eng: universal communication style
@@ -36,7 +37,7 @@ Use a casual, spoken tone. First person, sentence fragments, and light openers a
 
 Target English voice:
 
-> Yeah, screening dev/qa hasn't had this error before. It only occurred on Entity dev/qa, so I'm testing it there now.
+> Yeah, the upstream service's dev/qa hasn't had this error before. It only occurred on ours, so I'm testing it there now.
 
 Target Traditional Chinese voice:
 
@@ -50,15 +51,15 @@ Good:
 
 > Hi @customer,
 >
-> This step 2 icon shows the whole section incomplete, and files aren't it. Can you ask Fondy to scroll through `Nature of Business` and check for a field with a red/highlighted border (not the file cards), and send a screenshot of that?
+> This step 2 icon shows the whole section incomplete, and files aren't it. Can you ask the merchant to scroll through `Nature of Business` and check for a field with a red/highlighted border (not the file cards), and send a screenshot of that?
 >
 > BTW, I found a [bug](TIKET_LINK) that shows uploaded files as `0 Bytes`, but no impact here.
 
 Bad:
 
-> Hey Customer, found it. The "0 Bytes" on every file is a known display bug, not real data loss: the CIR form shows a placeholder size for previously uploaded files since our API doesn't return file size, so the card always reads 0 bytes even though the file saved fine. Filed as ON-2112.
+> Hey Customer, found it. The "0 Bytes" on every file is a known display bug, not real data loss: the onboarding form shows a placeholder size for previously uploaded files since our API doesn't return file size, so the card always reads 0 bytes even though the file saved fine. Filed as ABC-123.
 >
-> The actual blocker for Section 2 is separate: the step icon shows the whole section incomplete, and files aren't it. Can you ask Fondy to scroll through Nature of Business and check for a field with a red/highlighted border (not the file cards), and send a screenshot of that?
+> The actual blocker for Section 2 is separate: the step icon shows the whole section incomplete, and files aren't it. Can you ask the merchant to scroll through Nature of Business and check for a field with a red/highlighted border (not the file cards), and send a screenshot of that?
 
 Leads with the minor, already-fixed finding instead of the actual ask; the real blocker and the question get buried in the second paragraph.
 
@@ -100,6 +101,7 @@ When asked to write in the user's voice, use available writing samples and memor
 ## Structure and density
 
 - Lead with the answer, decision, result, or ask.
+- Reviews stay evidence-based and tied to the stated specification; prefer the smallest actionable finding and draft the exact communication before posting.
 - Short internal messages: max 4 sentences. Use bullets only for 3 or more distinct action items. Use the space needed when the user explicitly requests analysis or explanation.
 - Documents and articles: use only the length and structure needed for clarity.
 - Prefer active voice. State genuine uncertainty precisely; avoid empty hedging such as "could potentially" or "it seems".
@@ -136,6 +138,7 @@ When asked to write in the user's voice, use available writing samples and memor
 ## Grammar, punctuation, and formatting
 
 - Use correct grammar and punctuation for the output language.
+- English: drop articles (`a`, `an`, `the`); correct grammar otherwise.
 - English uses contractions when natural: `isn't`, `doesn't`, `can't`.
 - English uses straight quotes, not curly quotes. Other languages use their standard quotation marks.
 - No em dashes.
@@ -145,7 +148,7 @@ When asked to write in the user's voice, use available writing samples and memor
 - No rule-of-three used for rhetorical effect. Keep factual lists intact.
 - No icons or emoji.
 - Use minimal formatting. Structured plans and reference documents may use Markdown headings and lists when they improve navigation. Avoid decorative headings, unnecessary sections, tables, and visual chunking.
-- No decorative parenthetical tags: dates like `(merged 2026-07-27)`, filenames already shown elsewhere like `(rds.tf)`, or a heading suffix that just repeats the section/doc topic like `Infrastructure (Terraform)` or `Handover (ON-2017)`. Before adding a `(...)` aside, check whether it's structurally required (a table cell, a Jira field, a monitor link) or genuinely new disambiguating information (e.g. `(CDD team)` naming who defined something). If it only restates or labels something already obvious from context, cut it or fold the fact into the sentence as prose.
+- No decorative parenthetical tags: dates like `(merged 2026-07-27)`, filenames already shown elsewhere like `(rds.tf)`, or a heading suffix that just repeats the section/doc topic like `Infrastructure (Terraform)` or `Handover (ABC-123)`. Before adding a `(...)` aside, check whether it's structurally required (a table cell, a Jira field, a monitor link) or genuinely new disambiguating information (e.g. `(CDD team)` naming who defined something). If it only restates or labels something already obvious from context, cut it or fold the fact into the sentence as prose.
 
 ## Banned language
 

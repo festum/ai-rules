@@ -1,5 +1,5 @@
 ---
-name: creating-pr
+name: open-pr
 description: Create a clean, review-ready pull request with a good title, structured description, linked issues, and appropriate reviewers.
 user-invocable: true
 ---
@@ -12,24 +12,13 @@ Package work into a pull request that's easy to review and merge.
 
 ### 1. Prepare the Branch
 
-Before creating the PR:
+Sync the base branch, commit, and squash per `git-commit` (merge, not rebase; push only after the human says "push").
 
 ```bash
-git fetch origin
-git rebase origin/main  # or merge, depending on project convention
-
 # Check what will be in the PR
 git log origin/main..HEAD --oneline
 git diff origin/main --stat
 ```
-
-Squash fixup commits if the project prefers clean history. Keep logical commits separate if the project prefers granular history.
-
-Personal convention: if the branch is behind the base branch, auto pull/merge `main` and resolve conflicts without asking.
-
-Commit message rules:
-- Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), ≤18 words, scope optional.
-- Do not add `Co-Authored-By: XYZ` trailer.
 
 ### 2. Write the Title
 
@@ -52,7 +41,7 @@ Examples:
 
 ### 3. Write the Description
 
-If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in feature owner (`@mohitchandna-ppro`) and the Jira ticket (`ON-XXXX`).
+If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in the template's required fields (e.g. feature owner, ticket ID) from the repo's `AGENTS.md`/`CLAUDE.md` or the branch name; ask if still unknown.
 
 ### 4. Self-Review
 
@@ -64,7 +53,7 @@ Before requesting review:
 - Verify lint
 - Check for files that shouldn't be committed (`.env`, lockfile conflicts)
 
-Personal convention: before committing, also run coverage checks and the `TF plan and apply DEV from branch (manual)` GitHub Action (if exists) to deploy and verify integration tests pass in DEV.
+Personal convention: before committing, also run coverage checks.
 
 ### 5. Create the PR
 
@@ -97,4 +86,4 @@ Personal convention: use the `gh` CLI exclusively for all PR interactions (creat
 
 ## CI Notes (personal)
 
-- A failing `validate-and-record-change` job means the PR isn't approved yet — do not treat it as a CI failure.
+- A failing approval-gate job (change-record or sign-off check) means the PR isn't approved yet — do not treat it as a CI failure.

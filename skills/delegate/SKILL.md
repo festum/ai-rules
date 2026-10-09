@@ -1,0 +1,180 @@
+---
+name: delegate
+description: ship without implementing. Investigate all related repos and docs, reconcile conflicting sources, produce plans that a cheaper agent (omp, opencode, Cursor, smaller Claude model) executes, verify the result, then push, open the PR, and turn review comments and CI failures into new plans until the PR is approved.
+user-invocable: true
+allowed-tools: read, write, edit, grep, bash, github, todo, ask, agent
+---
+
+# delegate
+
+This skill never writes production code. It covers the same lifecycle as `ship` (plan, verify, push, PR, review comments, CI, Dev deploy), but every code change is planned in the ticket's worktree and executed by another agent.
+
+Terms:
+- **Ticket**: the work item in any tracker (Jira, Linear, GitHub Issues, …). `<TICKET>` is its ID, e.g. `ABC-123`.
+- **Tracker tool**: whatever integration is available for that tracker (CLI, MCP server, or a dedicated skill).
+- **Plan file**: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md`. The plan file holds the plan; current state lives beside it in `STATE.md` (rules.md §8).
+
+## How to use it
+
+First run: `/delegate <ticket URL>`. The URL identifies the tracker; it goes into `STATE.md`. After that, just run `/delegate` again whenever you come back. Optional words steer the run, e.g. `replan` (redo Stage 2 after a spec change) or a note such as "executor stopped at task 3".
+
+### Resolving the ticket
+
+1. The argument, if given (URL or ID).
+2. The ticket already handled in this session.
+3. The current directory: a worktree whose branch is a ticket ID.
+4. The `STATE.md` whose key, branch, or aliases match (rules.md §8 lookup order).
+5. Nothing resolvable → ask for the ticket URL.
+
+Never assume a tracker host.
+
+### Plan file
+
+Header of every plan file:
+
+```
+version: v<N>   updated: <UTC>
+```
+
+The review round log and the verification notes live in `STATE.md` `## Verification`. A stage is done only when its artifacts exist: the plan file `plan-v<N>.md`, plus those `STATE.md` entries.
+
+### Detecting the stage
+
+Every run reloads the ticket, then gathers:
+- `STATE.md` (status, Verification, Plan) and the plan files `plan-v<N>.md` for the ticket.
+- Worktree changes vs the base: `git status`, `git log <base>..HEAD`, and whether they are newer than the last verification notes.
+- The PR: `gh pr list --head <TICKET> --json number,url,reviewDecision`.
+- Unreplied review threads, using the GraphQL query and "actionable" rule from `ship` §4.
+- Real CI checks from `statusCheckRollup`, excluding approval-gate jobs (change-record / sign-off).
+
+| State | Stage |
+|---|---|
+| No worktree or no plan file | 1 Prepare → 2 Plan → 3 Hand off |
+| Plan handed off, no new changes | Executor hasn't run; repeat the hand-off message |
+| Changes newer than the last verification notes | 4 Verify |
+| Gap plan handed off, no new changes | Waiting on the executor; repeat the hand-off message |
+| Verified CLEAN, no PR | 5 Deliver |
+| PR open with unreplied threads or failing real checks | 6 PR loop |
+| PR open, verified fixes not yet pushed | 6 PR loop (push + reply part) |
+| PR approved, no unreplied threads, real checks green | Done; report status |
+
+## Plan mode
+
+Read-only stage detection → short plan (which stage, which files this run touches) → ExitPlanMode → run the stages.
+
+## Principles
+
+1. Authority order: reviewer comments > ticket > PRD/RFC, unless timestamps prove otherwise (1.3).
+2. Contracts and enums: read the producer's serializers/annotations; never guess JSON fields or enum text. Plan a wire DTO → mapper → domain enum layer, a Truth Table for polymorphic fields, and an unknown-value fallback. Producer code inaccessible → stop and report.
+3. Raw-payload HTTP tests: every external call gets an HTTP-level mock test (WireMock, MockWebServer, MSW, …) with real raw JSON.
+4. Team conventions are mandatory (1.4).
+5. No out-of-scope work, incidental refactoring, or speculative code. Ambiguity goes to open questions, never into vague tasks.
+
+## Hard rules
+
+- Never skip a stage because the user wants speed.
+- Blocking dependencies → ask with options, never decide to wait.
+- A stage is done only when its artifacts exist (plan file `plan-v<N>.md`, plus the review round log and verification notes in `STATE.md`).
+
+## Workflow
+
+### Stage 1 — Prepare
+
+#### 1.1 Set up the worktree
+
+1. Find the touched repos from the user's project map if one is provided (e.g. a `CLAUDE.md` / `AGENTS.md` in the parent folder listing repos, purposes, and aliases); fall back to searching only when the map has no match. From then on, search only inside those repos and their worktrees, never across the whole parent folder. Update every touched repo to the latest default branch. Reuse an existing worktree/branch for the ticket if one exists (`git worktree list`, `git branch -a | grep -i <TICKET>`).
+2. Otherwise create a worktree on branch `<TICKET>` from the default branch. A task without a ticket uses the `T-` key as the branch name (rules.md §8.1).
+3. When creating `STATE.md`, fill the `repos:` header with the touched repos (rules.md §8).
+
+#### 1.2 Gather sources and ingest
+
+1. Load the ticket via the tracker tool: description, acceptance criteria, comments, linked issues, attachments, last-updated time.
+2. Follow every link (RFC, wiki pages, PRD, design docs, chat excerpts). Record each with its URL, author, and last-modified time; the list goes into the plan in Stage 2.
+3. Read the producer code paths and the related repos the ticket touches; record findings with file:line evidence. Use parallel read-only subagents for broad sweeps.
+4. Read the project docs (README, agent/spec files) and note every conflicting statement for 1.3.
+
+#### 1.3 Reconcile inconsistencies
+
+Re-judge **every** conflicting pair, including any a tool flagged as auto-resolved, with these rules, and record the verdict per row in the Inconsistency Register (written into the plan in Stage 2):
+
+- Evidence: ticket updated/comment dates, wiki version dates, `git log -1 --format=%cI -- <path>`, PR merge dates.
+- The newest deliberate statement wins; merged code on the default branch beats a doc older than the merge; a reviewer/owner comment beats the ticket body it postdates.
+- Timestamps don't settle it, or the newest source looks accidental → `NEEDS-HUMAN`; ask before planning.
+- Sync every stale source: stale code or repo docs → the ticket's requirements in the plan; stale ticket → draft the exact edit, apply via the tracker tool after approval; stale wiki/RFC/PRD → draft a minimal edit to the existing structure (preserve comment anchors and element IDs, never rewrite the page), apply only after approval through a write path the user allows.
+
+#### 1.4 Team conventions
+
+For each concern the change touches (persistence, migrations, tests, DTO/mapping, config, messaging, error handling), find ≥3 precedents. If the target repo has fewer than 3, survey the team's most actively developed sibling repo instead of copying the nearest single example. Write the list (convention → source path) into the plan's Conventions section so the planner and reviewers treat it as binding. Deviations go to the user.
+
+### Stage 2 — Plan and review the plan
+
+1. Write `v<N>` to `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md` (rules.md §8). `N` = highest existing version + 1; never overwrite an existing version. Self-contained template: goal and acceptance criteria, sources, Inconsistency Register, conventions, repos/worktrees, contracts and Truth Tables, ordered tasks (files, tests, done-when), verification commands, open questions, out of scope, executor rules (no push, no PR; keep `HANDOFF-NOTES.md` in the worktree updated with what changed and what was verified).
+2. Dual review, **cap 5 rounds.** Run (a) and (b) **in parallel** each round:
+   - (a) omp read-only review: `omp -p --tools=read,grep,glob --advisor --max-time=15m --cwd <worktree> "<review prompt with the plan path>"`; round 2+ continues with `-c`.
+   - (b) An independent Claude subagent (`agent` tool) given only the plan path and repo paths.
+
+   Stop after **one** round where both say CLEAN and the plan is unchanged since the previous round; require **two consecutive CLEAN rounds only after a round that changed the plan** (a fix can introduce new errors). Each gap-triggered re-review (Stage 4.5, Stage 6.2) starts from this rule again.
+   Re-verify each finding, fix the plan, append the round to `STATE.md` `## Verification`, and end the round with `CLEAN` or `ISSUES`.
+3. Check the final plan yourself against the ticket's acceptance criteria, 1.3 verdicts, and 1.4 conventions. End with `CLEAN` or `ISSUES: <list>`.
+
+### Stage 3 — Hand off
+
+End the run with this message (fill in absolute paths):
+
+```
+Plan: <state dir>/plan-v<N>.md   (list every plan file for the ticket)
+State: <state dir>/STATE.md   (rules.md §8)
+Worktree: <worktree>   Branch: <TICKET>
+Pending: <sync edits awaiting approval, NEEDS-HUMAN items, or "none">
+
+Run one executor inside the worktree:
+  omp -p --plan-yolo --advisor --auto-approve --approval-mode=yolo --max-time=1h --cwd <worktree> "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
+  claude --model sonnet "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
+  opencode run "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
+  agent -p "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
+
+When it finishes, come back and run: /delegate
+```
+
+- After the first turn, keep the executor honest with the `omp` skill's `-c` verify loop.
+- For gap rounds the executor runs against the `v<N+1>` gap plan.
+- omp liveness rules are in the `omp` skill. Executors must not push or open PRs.
+- Add `<TICKET>` to the come-back command only when it will run from a different session or directory.
+- Then the three lines Done / Not done / Next.
+
+### Stage 4 — Verify the implementation
+
+1. Reload the ticket and PR comments; read `STATE.md` (status, Verification, Plan) and the plan file.
+2. Check the delivered change against the plan's goal and acceptance criteria (UAT).
+3. Verify independently, never trusting the executor's report:
+   - `git diff <base>...HEAD` plus uncommitted changes; nothing outside scope; 1.4 conventions followed.
+   - Truth Tables, unknown-enum fallback, and raw-payload HTTP tests present; no debug noise; defensive checks present.
+   - Run the repo's full lint and test commands as CI runs them.
+   - If the base moved, check new base code for reusable helpers or spec changes.
+4. When the change needs runtime proof (API behavior, messaging, migrations), deploy to Dev with the repo's existing deploy workflow and check logs, endpoints, and monitoring against the acceptance criteria.
+5. Gaps found → record each in `STATE.md` `## Verification`, write `v<N+1>` containing only the delta (findings, corrective tasks, pointer to `v<N>`), repeat Stage 2's dual review, then Stage 3 with `v<N+1>` as the executor's plan.
+6. No gaps → `CLEAN`; continue with Stage 5 (no PR yet) or the push + reply part of Stage 6 (PR open).
+7. End with `CLEAN` or `ISSUES: <list>`, then Done / Not done / Next.
+
+### Stage 5 — Deliver
+
+1. Report Done / Not done / Next and wait for the human to say "push". Never commit or push before that.
+2. After "push": follow `git-commit` (merge the base, re-check it, re-run lint/tests, squash into one commit), push, then open the PR with `open-pr`.
+3. Wait for the real checks; failures go to Stage 6. Green → auto-deploy to Dev with the repo's existing deploy workflow, report the result.
+
+### Stage 6 — PR loop
+
+Follow `ship` §4 for collecting threads, judging comments (accept / partial / reject / ask; multi-lens review per `ship` §4 — `/code-review` or read-only bounded omp, never omp's default task mode — only for diffs over 400 lines or security/payment-sensitive changes), reply wording, CI handling, and Dev deploy. The difference: code changes go to the executor.
+
+1. Collect unreplied threads and failing real checks. Put product/design questions (`ask`) to the user.
+2. Record every accepted item and real CI failure as a gap in `STATE.md` `## Verification` → write `v<N+1>` → Stage 2 review → Stage 3 hand-off with `v<N+1>` as the executor's plan.
+3. Next run, after the executor: Stage 4 verify. Then draft numbered replies (`# | Thread | Decision | Change | Draft reply`) and wait for "push".
+4. After "push": `git-commit` → push → wait for the real checks → reply once per thread via `gh` → auto-deploy to Dev → back to step 1.
+5. Never auto-resolve threads. Stop when no unreplied threads remain and `reviewDecision` is `APPROVED`. Pause on design forks or after ~3 failed fix → CI rounds.
+
+## Related skills (if installed)
+
+- `ship`: same lifecycle with Claude implementing; owns the PR-loop rules referenced in Stage 6.
+- `open-pr`: PR title, template, reviewers.
+- `git-commit`: commit, merge, and push rules.
+- `omp`: dispatching and verifying omp runs.

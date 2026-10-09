@@ -8,8 +8,6 @@ user-invocable: true
 
 Hand work to the local `omp` CLI ([can1357/oh-my-pi](https://github.com/can1357/oh-my-pi)). Linked for Hermes / OpenClaw only.
 
-**With GSD:** for non-trivial coding work, prefer GSD (`gsd-*`) for plan/execute; use this skill's omp verify loop (`-c` / `Nverify`) after implementation. Tiny one-shots can stay omp-only. Do not edit the GSD pack from here.
-
 ## Boundaries (CLI help)
 
 | Flag | Meaning |
@@ -31,6 +29,11 @@ omp -p --auto-approve --approval-mode=yolo --advisor --max-time=1h
 
 Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp` is missing from `PATH`, stop.
 
+## Shared task state (rules.md §8)
+
+- Before dispatch: resolve the key (ticket ID → current branch → aliases → STATE.md worktree match), read or create `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (fill `repos:`; task without a ticket: create the branch named after the key), and put the state folder path into the prompt.
+- After every round: write the omp session id to `## Sessions`, the round verdict to `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`), and append one line to `log.md`.
+
 ## Liveness & failure detection
 
 `omp -p` fails loudly: non-zero exit, message on **stderr**, stdout can stay empty. A caller that reads only stdout sees nothing — treat that as failure, not success.
@@ -39,6 +42,7 @@ Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp`
 - Capture **exit code and stderr**, not just stdout. Exit ≠ 0, empty stdout, or no result → failure.
 - Proof it started: a new `~/.omp/agent/sessions/<slugified-cwd>/*.jsonl` after dispatch (no file → OMP never ran). `omp ps --json` adds daemon-supervised state.
 - Silence rule: no first output within N seconds and no session file → kill and report `BLOCKED: omp not started`; do not wait for `--max-time`.
+- A `BLOCKED` report must also be written into STATE.md `## Gates` (rules.md §8): reason plus the authorization needed. Stdout is lost when the session ends.
 - Debug a hang: `PI_DEBUG_STARTUP=1` (stderr `[startup] <phase>` markers survive a hard hang), `PI_TIMING=1`. Built-in stream deadlines `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` / `PI_STREAM_IDLE_TIMEOUT_MS` (`0` disables).
 
 ## Background dispatch & completion
@@ -94,7 +98,7 @@ Shape a run without prompt text: `--model` / `--smol` / `--slow` / `--plan`, `--
 ```
 Turn 0:   omp -p [--plan-yolo] --advisor … "TASK"
 Turn 1…N: omp -p -c --advisor … "VERIFY prompt"
-Stop:     N reached, or 3 consecutive CLEAN verifies
+Stop:     N reached, 3 consecutive CLEAN verifies, or 2 consecutive rounds still ISSUES (BLOCKED)
 ```
 
 **Turn 0**
@@ -121,7 +125,7 @@ omp -p -c --auto-approve --approval-mode=yolo --advisor --max-time=30m \
 
 - `CLEAN` → consecutive_clean++
 - `ISSUES` → fix in that continue turn; consecutive_clean = 0
-- Stop when `consecutive_clean >= 3` or `k == N`
+- Stop when `consecutive_clean >= 3`, or `k == N`, or two consecutive rounds still end `ISSUES` → stop and report `BLOCKED: verify loop fail` (governance: hermes.md §5.1)
 - If `-c` misses the session, use `-r <id>` from turn 0 output
 
 **Optional:** `omp cleanse` when lint/diagnostics noise keeps failing, then continue with `-c`.
