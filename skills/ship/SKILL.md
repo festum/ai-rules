@@ -27,7 +27,7 @@ allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-co
 ## 執行流程
 
 ### 1. 準備與分支
-- 讀取或建立共用狀態檔 `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`（key = ticket ID；規則見 rules.md §8）；已存在的 `Scope & constraints` 不改寫。建立時填 `repos:`；任務無 ticket 時，分支以 T- key 命名。
+- 讀取或建立共用狀態檔 `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`（key = ticket ID）；已存在的 `Scope & constraints` 不改寫。建立時填 `repos:`；任務無 ticket 時，分支以 T- key 命名。
 - 重新載入或讀取 Jira Ticket 並補全缺漏規格。
 - 找出相關 repo：使用者有提供專案地圖時（例如上層資料夾的 `CLAUDE.md` / `AGENTS.md`，列出 repo、用途與別名）先查地圖，地圖找不到才搜尋；確定 repo 後只在這些 repo 與其 worktree 內搜尋，不要整個上層資料夾掃描。
 - 團隊慣例盤點：目標 repo 為新 service，或某類寫法（持久層、測試、Migration、Commit 格式）前例少於 3 個時，先到同團隊已知高度活躍開發中的 repo 整理該類慣例，於 plan 列出「要遵循的慣例」並附出處檔案；嚴禁僅照抄目標 repo 內最近的單一前例，偏離慣例必須列為待人類決定的事項。

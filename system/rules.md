@@ -1,6 +1,6 @@
-# OMP Execution-Layer Rules
+# Execution-Layer Rules
 
-Code and engineering rules for the OMP execution layer. Language settings and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
+Shared code and engineering rules for every coding agent. A few bullets call out `omp` (a headless executor CLI) or the Hermes layer; on setups that do not have those tools these bullets are no-ops. Language settings and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
 
 When rules conflict, safety and explicit human instructions take priority, then this document.
 
@@ -42,7 +42,12 @@ Before final confirmation, review the git diff (staged and unstaged) and confirm
 2. Defensive: null/empty checks, network and exception handling, and boundary conditions are all present.
 3. Consistency: the logic matches the Truth Table and the Jira or task spec exactly, and the project's lint and test commands pass in full.
 
-Reporting contract: end each verification round with a single line, `CLEAN` or `ISSUES: <list>`. When delivering results or a PR, use three lines: Done / Not done / Next.
+Reporting contract: `CLEAN` / `ISSUES: <list>` is a machine verdict, not a chat signature.
+- Record: every verification round writes `- <UTC> <command or check> → CLEAN|ISSUES: <list>` to `STATE.md` `## Verification`.
+- Machine outputs: verify-loop rounds (omp `-c`, only when you run that loop) still end with exactly one line `CLEAN` or `ISSUES: <list>` for the parser.
+- Chat replies to a human: lead with the verdict in prose; append `ISSUES: <list>` only when something failed; no trailing `CLEAN`.
+- When delivering results or a PR: three lines Done / Not done / Next, verdict first in prose.
+- Reply drafts for the human to paste (Slack, PR comments): invoke `voice` first, then hand over raw markdown in a ```markdown fenced block so it copies as-is (never a rendered `>` quote).
 
 ## 6. When Stuck
 
@@ -59,7 +64,7 @@ This document assumes the Hermes system layer exists. When Hermes is absent, use
 2. State: shared task state per §8; the todo list is session-only.
 3. Plan control: without Hermes, use the built-in plan and todo for breakdown and tracking.
 4. Read-only system protection: without Hermes, only the current working directory or its worktree is writable; any path outside the plan is read-only.
-5. OMP liveness: preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` ⇒ OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
+5. OMP liveness (only when you dispatch omp): preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` ⇒ OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
 
 Execution authority is covered in §1.
 
@@ -71,9 +76,9 @@ Location: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/`
 
 ### 8.1 Keys
 
-- With a ticket: the ticket ID (e.g. `ON-2278`). Jira keys stay as-is.
+- With a ticket: the ticket ID (e.g. `MO-2278`). Jira keys stay as-is.
 - Git task without a ticket: `T-<YYYYMMDD>-<kebab-short-name>`, created by the first agent that acts. The branch name equals the key; when the agent creates the task it also creates the branch (or worktree) with that name.
-- Trackers whose numbers repeat across repos (e.g. GitHub Issues): key = `<repo>-<number>`, e.g. `pl-b-entity-42`.
+- Trackers whose numbers repeat across repos (e.g. GitHub Issues): key = `<repo>-<number>`, e.g. `awesomerepo-42`.
 - A local-ID task that must open a PR: propose a formal ticket first (external write, wait for human approval). Once it exists, rename the folder to the ticket ID and record the old ID under `aliases` in STATE.md.
 - Non-git one-offs, Q&A, and config changes: create no folder.
 
@@ -106,26 +111,54 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 ### 8.6 STATE.md template
 
 ````markdown
-# <key> — <title>
-key: <key>   aliases: <old IDs or none>   ticket: <URL or none>
+# <key> - <title>
+key: <key> | aliases: <old IDs or none> | ticket: <URL or none>
 repos: <repo>, <repo>
 status: <prepared|planned|reviewed|handed-off|in-progress|verified|delivered|pr-loop|blocked|done>
-updated: <UTC>   by: <hermes|omp|claude|cursor|opencode|human>
+updated: <UTC> | by: <hermes|omp|claude|cursor|opencode|human>
 
-## Scope & constraints   (Hermes/human only)
+## Scope & constraints (Hermes/human only)
 ## Repos & worktrees
-- <repo>  branch <branch>  worktree <path>  base <branch>
+- <repo> | branch <branch> | worktree <path> | base <branch>
 ## Status
 Done: …
 Not done: …
 Next: …
 ## Verification
 - <UTC> <command or check> → CLEAN|ISSUES: …
-## Gates   (pending human decisions; BLOCKED reasons)
+## Gates (pending human decisions; BLOCKED reasons)
 ## Sessions
-- omp: <session id> (<cwd>)   claude: <session id>   pr: <URL>
+- omp: <session id> (<cwd>) | claude: <session id> | pr: <URL>
 ## Plan
-current: plan-v<N>.md   (delegate only)
+current: plan-v<N>.md (delegate only)
 ````
 
 Find tasks touching a repo: `grep -l '^repos:.*\b<repo>\b' <state dir>/*/STATE.md`.
+
+## 9. Agent-Computer Interface (ACI) Discipline
+
+Interface contract for every tool call. Source: Yang et al., SWE-agent (arXiv:2405.15793). Applies to every agent (Hermes, omp executor, delegate, host editor). Machine contract: loaded by default, not skill-triggered.
+
+- One command per turn: one primary tool call (a tight read/edit batch is still one action); narration minimal. Prefer fixing by config/data over source edits.
+- Line-number windows, no continuous scroll: locate first with grep (line numbers), then read one bounded window (`sed -n 'A,Bp'`, ≤100 lines); never consecutive scroll of a whole file.
+- Bounded output: any command output over run truncates at 100 lines (`head -100` or editor tool limit); zero output means explicit success line, never silence.
+- Lint before edit: run the file's lint/format gate before an edit to it; gate fail → abort the edit, address the gate fail first, do not push through; no gate defined for that file type → say so once and proceed.
+- Edit loop brake: after 3 turns editing the same file without passing the gate, stop and emit `BLOCKED: aci edit-loop`.
+- Search breadth cap: one listing round lists only file names, hard cap 50 hits (`find`, not `ls -R`); per-file content read falls to the line window rule above.
+- Turn / cost ceiling: for multi-round tasks, set max turns and max cost up front; exceeded → emit `BLOCKED: aci budget`.
+
+## 10. Evidence Discipline
+
+Anti green-lie: every `done / pass / fixed / CLEAN / works` claim must trace to evidence, not intent. Applies to every agent.
+
+- Ran-this-session rule: a pass claim is valid only if you ran the check in the current session and saw its output; the claim names that command. The claim must match its `STATE.md ## Verification` record (format per §5) — record applies to task rounds; Q&A answers cite the output inline.
+- Silence is not success: zero-output commands confirm success by exit code, artifact existence, or a follow-up probe — state which one proved it.
+- Fact vs inference: factual claims cite file:line or command output; speculation carries the explicit marker `inference:` and lives in prose only, never inside a machine verdict. Verdict lines (`CLEAN` / `ISSUES: <list>` / `UNVERIFIED` / Done-Notdone-Next) are fact-only: anything unverified goes to `UNVERIFIED: <what>`, never disguised as fact.
+- Not-memory rule: a previous session's success, tool defaults, or doc trust never verify current state; re-run what you claim.
+- Unknown stays unknown: cannot verify → write `UNVERIFIED: <what>` and the blocker reason; never fold an unverified item into a pass, never soften with "probably fine".
+- Negative claims need full coverage: a claim that something does not exist, does not happen, or is unused holds only if the search covered every place it could be. Otherwise `UNVERIFIED`. An empty search result proves nothing.
+- Outbound claims carry their basis: every technical claim sent to humans states how it is known: tested, cited source, or `inference:`. A claim about another team's system or about product intent names the owner who can confirm it. It does not drive a design decision until that owner confirms.
+- Contract changes start from live reality: before changing anything consumed outside the repo, capture its current live form and known consumers. Default to additive, non-breaking changes. A breaking change needs owner sign-off.
+- Action claims are evidence claims: never report an action as done (saved, posted, updated, sent, recorded) unless it ran this session and its output confirmed it.
+- Challenged claims get new evidence: when a claim is disputed or questioned again, gather evidence the challenger can check (live data, a reproducible test, the owner's answer) before replying. Do not re-assert the same basis.
+- Read state before deciding: before advising on or changing shared state (PR, thread, ticket, branch), re-read its latest version. Do not act on a snapshot from earlier in the session.

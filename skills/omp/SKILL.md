@@ -29,7 +29,7 @@ omp -p --auto-approve --approval-mode=yolo --advisor --max-time=1h
 
 Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp` is missing from `PATH`, stop.
 
-## Shared task state (rules.md §8)
+## Shared task state
 
 - Before dispatch: resolve the key (ticket ID → current branch → aliases → STATE.md worktree match), read or create `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (fill `repos:`; task without a ticket: create the branch named after the key), and put the state folder path into the prompt.
 - After every round: write the omp session id to `## Sessions`, the round verdict to `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`), and append one line to `log.md`.
@@ -41,13 +41,14 @@ Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp`
 - Preflight before dispatch: `command -v omp`, then `omp --version`. Missing or non-zero → stop, report `BLOCKED`. Never assume OMP ran.
 - Capture **exit code and stderr**, not just stdout. Exit ≠ 0, empty stdout, or no result → failure.
 - Proof it started: a new `~/.omp/agent/sessions/<slugified-cwd>/*.jsonl` after dispatch (no file → OMP never ran). `omp ps --json` adds daemon-supervised state.
-- Silence rule: no first output within N seconds and no session file → kill and report `BLOCKED: omp not started`; do not wait for `--max-time`.
-- A `BLOCKED` report must also be written into STATE.md `## Gates` (rules.md §8): reason plus the authorization needed. Stdout is lost when the session ends.
-- Debug a hang: `PI_DEBUG_STARTUP=1` (stderr `[startup] <phase>` markers survive a hard hang), `PI_TIMING=1`. Built-in stream deadlines `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` / `PI_STREAM_IDLE_TIMEOUT_MS` (`0` disables).
+- Silence rule: no first output within 30s and no session file → kill and report `BLOCKED: omp not started`; do not wait for `--max-time`.
+- A `BLOCKED` report must also be written into STATE.md `## Gates`: reason plus the authorization needed. Stdout is lost when the session ends.
+- Stream watchdog: `providers.streamFirstEventTimeoutSeconds` / `providers.streamIdleTimeoutSeconds` (config, seconds; target 120s) bound first-event and inter-event silence so a wedged stream exits non-zero; env `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` / `PI_STREAM_IDLE_TIMEOUT_MS` (ms, `0` disables) override per run.
+- Debug a hang: `PI_DEBUG_STARTUP=1` (stderr `[startup] <phase>` markers survive a hard hang), `PI_TIMING=1`.
 
 ## Background dispatch & completion
 
-Default is **foreground** (blocking). Go background only when the host can own the child process and record it durably; otherwise stay foreground. Never hand-roll `nohup` + poll — no reaper, no restart survival.
+Default is **foreground** (blocking). Long dispatch (plan-yolo implement + verify loop, expect > 5 min) prefer **background host-as-parent** below; a foreground long run risks the host tool-call timeout killing the child mid-run. Background only when the host can own the child process and record it durably; otherwise stay foreground. Never hand-roll `nohup` + poll — no reaper, no restart survival.
 
 **Host-as-parent (preferred):** spawn OMP as a **child** and read its stream asynchronously, so the frontend stays responsive.
 
@@ -96,9 +97,9 @@ Shape a run without prompt text: `--model` / `--smol` / `--slow` / `--plan`, `--
 ### Default flow
 
 ```
-Turn 0:   omp -p [--plan-yolo] --advisor … "TASK"
+Turn 0: omp -p [--plan-yolo] --advisor … "TASK"
 Turn 1…N: omp -p -c --advisor … "VERIFY prompt"
-Stop:     N reached, 3 consecutive CLEAN verifies, or 2 consecutive rounds still ISSUES (BLOCKED)
+Stop: 1 CLEAN that changed no code, N reached, or 2 consecutive stuck rounds (BLOCKED)
 ```
 
 **Turn 0**
@@ -120,12 +121,14 @@ omp -p -c --auto-approve --approval-mode=yolo --advisor --max-time=30m \
 1. Re-read the diff and acceptance criteria for TASK_XXX.
 2. Re-run lint and the relevant tests yourself.
 3. Fix any real issues you find.
-4. End with exactly one line: CLEAN or ISSUES: <short list>."
+4. End with exactly one line: CLEAN or ISSUES: <short list>.
+Rule: report ISSUES when you fixed anything this round (list what you fixed), even if checks now pass; report CLEAN only when this round changed no code and all checks pass."
 ```
 
-- `CLEAN` → consecutive_clean++
-- `ISSUES` → fix in that continue turn; consecutive_clean = 0
-- Stop when `consecutive_clean >= 3`, or `k == N`, or two consecutive rounds still end `ISSUES` → stop and report `BLOCKED: verify loop fail` (governance: hermes.md §5.1)
+- `CLEAN` (no code changed this round) → verify state proven; another `-c` round would re-run identical checks on identical state → stop.
+- `ISSUES` → fix in that continue turn; next round re-verify the fix.
+- Stop at the first `CLEAN` round that changed no code, or `k == N`, or two consecutive **stuck rounds** → stop and report `BLOCKED: verify loop fail`. Stuck = a round that changed no code and still ended `ISSUES` (a fixing round is progress: it also reports `ISSUES`, but resets the stuck counter).
+- Rationale: repeated CLEAN rounds on unchanged code carry no new evidence; lazy/fake defense = advisor strike + the caller's independent host verify, not more self-rounds.
 - If `-c` misses the session, use `-r <id>` from turn 0 output
 
 **Optional:** `omp cleanse` when lint/diagnostics noise keeps failing, then continue with `-c`.

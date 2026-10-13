@@ -12,7 +12,7 @@ This skill never writes production code. It covers the same lifecycle as `ship` 
 Terms:
 - **Ticket**: the work item in any tracker (Jira, Linear, GitHub Issues, …). `<TICKET>` is its ID, e.g. `ABC-123`.
 - **Tracker tool**: whatever integration is available for that tracker (CLI, MCP server, or a dedicated skill).
-- **Plan file**: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md`. The plan file holds the plan; current state lives beside it in `STATE.md` (rules.md §8).
+- **Plan file**: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md`. The plan file holds the plan; current state lives beside it in `STATE.md`.
 
 ## How to use it
 
@@ -23,7 +23,7 @@ First run: `/delegate <ticket URL>`. The URL identifies the tracker; it goes int
 1. The argument, if given (URL or ID).
 2. The ticket already handled in this session.
 3. The current directory: a worktree whose branch is a ticket ID.
-4. The `STATE.md` whose key, branch, or aliases match (rules.md §8 lookup order).
+4. The `STATE.md` whose key, branch, or aliases match.
 5. Nothing resolvable → ask for the ticket URL.
 
 Never assume a tracker host.
@@ -33,7 +33,7 @@ Never assume a tracker host.
 Header of every plan file:
 
 ```
-version: v<N>   updated: <UTC>
+version: v<N> | updated: <UTC>
 ```
 
 The review round log and the verification notes live in `STATE.md` `## Verification`. A stage is done only when its artifacts exist: the plan file `plan-v<N>.md`, plus those `STATE.md` entries.
@@ -83,14 +83,14 @@ Read-only stage detection → short plan (which stage, which files this run touc
 #### 1.1 Set up the worktree
 
 1. Find the touched repos from the user's project map if one is provided (e.g. a `CLAUDE.md` / `AGENTS.md` in the parent folder listing repos, purposes, and aliases); fall back to searching only when the map has no match. From then on, search only inside those repos and their worktrees, never across the whole parent folder. Update every touched repo to the latest default branch. Reuse an existing worktree/branch for the ticket if one exists (`git worktree list`, `git branch -a | grep -i <TICKET>`).
-2. Otherwise create a worktree on branch `<TICKET>` from the default branch. A task without a ticket uses the `T-` key as the branch name (rules.md §8.1).
-3. When creating `STATE.md`, fill the `repos:` header with the touched repos (rules.md §8).
+2. Otherwise create a worktree on branch `<TICKET>` from the default branch. A task without a ticket uses the `T-` key as the branch name: `T-<YYYYMMDD>-<kebab-short-name>`.
+3. When creating `STATE.md`, fill the `repos:` header with the touched repos.
 
 #### 1.2 Gather sources and ingest
 
 1. Load the ticket via the tracker tool: description, acceptance criteria, comments, linked issues, attachments, last-updated time.
 2. Follow every link (RFC, wiki pages, PRD, design docs, chat excerpts). Record each with its URL, author, and last-modified time; the list goes into the plan in Stage 2.
-3. Read the producer code paths and the related repos the ticket touches; record findings with file:line evidence. Use parallel read-only subagents for broad sweeps.
+3. Read the producer code paths and the related repos the ticket touches; record findings with full_file_path:line evidence. Use parallel read-only subagents for broad sweeps.
 4. Read the project docs (README, agent/spec files) and note every conflicting statement for 1.3.
 
 #### 1.3 Reconcile inconsistencies
@@ -108,30 +108,30 @@ For each concern the change touches (persistence, migrations, tests, DTO/mapping
 
 ### Stage 2 — Plan and review the plan
 
-1. Write `v<N>` to `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md` (rules.md §8). `N` = highest existing version + 1; never overwrite an existing version. Self-contained template: goal and acceptance criteria, sources, Inconsistency Register, conventions, repos/worktrees, contracts and Truth Tables, ordered tasks (files, tests, done-when), verification commands, open questions, out of scope, executor rules (no push, no PR; keep `HANDOFF-NOTES.md` in the worktree updated with what changed and what was verified).
+1. Write `v<N>` to `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md`. `N` = highest existing version + 1; never overwrite an existing version. Self-contained template: goal and acceptance criteria, sources, Inconsistency Register, conventions, repos/worktrees, contracts and Truth Tables, ordered tasks (files, tests, done-when), verification commands, open questions, out of scope, executor rules (no push, no PR; keep `HANDOFF-NOTES.md` in the worktree updated with what changed and what was verified).
 2. Dual review, **cap 5 rounds.** Run (a) and (b) **in parallel** each round:
    - (a) omp read-only review: `omp -p --tools=read,grep,glob --advisor --max-time=15m --cwd <worktree> "<review prompt with the plan path>"`; round 2+ continues with `-c`.
    - (b) An independent Claude subagent (`agent` tool) given only the plan path and repo paths.
 
-   Stop after **one** round where both say CLEAN and the plan is unchanged since the previous round; require **two consecutive CLEAN rounds only after a round that changed the plan** (a fix can introduce new errors). Each gap-triggered re-review (Stage 4.5, Stage 6.2) starts from this rule again.
+   Stop after **one** round where both say CLEAN and the plan is unchanged during this review cycle; require **two consecutive CLEAN rounds only after a review round edited the plan** (a fix can introduce new errors). Each gap-triggered re-review (Stage 4.5, Stage 6.2) starts from this rule again.
    Re-verify each finding, fix the plan, append the round to `STATE.md` `## Verification`, and end the round with `CLEAN` or `ISSUES`.
-3. Check the final plan yourself against the ticket's acceptance criteria, 1.3 verdicts, and 1.4 conventions. End with `CLEAN` or `ISSUES: <list>`.
+3. Check the final plan yourself against the ticket's acceptance criteria, 1.3 verdicts, and 1.4 conventions. Record the verdict in `STATE.md` `## Verification`; lead the report with it in prose.
 
 ### Stage 3 — Hand off
 
 End the run with this message (fill in absolute paths):
 
 ```
-Plan: <state dir>/plan-v<N>.md   (list every plan file for the ticket)
-State: <state dir>/STATE.md   (rules.md §8)
-Worktree: <worktree>   Branch: <TICKET>
+Plan: <state dir>/plan-v<N>.md (list every plan file for the ticket)
+State: <state dir>/STATE.md
+Worktree: <worktree> | Branch: <TICKET>
 Pending: <sync edits awaiting approval, NEEDS-HUMAN items, or "none">
 
 Run one executor inside the worktree:
-  omp -p --plan-yolo --advisor --auto-approve --approval-mode=yolo --max-time=1h --cwd <worktree> "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
-  claude --model sonnet "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
-  opencode run "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
-  agent -p "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round (rules.md §8)."
+  omp -p --plan-yolo --advisor --auto-approve --approval-mode=yolo --max-time=1h --cwd <worktree> "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round."
+  claude --model sonnet "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round."
+  opencode run "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round."
+  agent -p "Implement <plan> exactly. Follow its Executor rules. Task state: <state dir>/STATE.md; read it first, update it after each round."
 
 When it finishes, come back and run: /delegate
 ```
@@ -154,7 +154,7 @@ When it finishes, come back and run: /delegate
 4. When the change needs runtime proof (API behavior, messaging, migrations), deploy to Dev with the repo's existing deploy workflow and check logs, endpoints, and monitoring against the acceptance criteria.
 5. Gaps found → record each in `STATE.md` `## Verification`, write `v<N+1>` containing only the delta (findings, corrective tasks, pointer to `v<N>`), repeat Stage 2's dual review, then Stage 3 with `v<N+1>` as the executor's plan.
 6. No gaps → `CLEAN`; continue with Stage 5 (no PR yet) or the push + reply part of Stage 6 (PR open).
-7. End with `CLEAN` or `ISSUES: <list>`, then Done / Not done / Next.
+7. Lead the report with the verdict in prose (append `ISSUES: <list>` only when gaps remain; no trailing `CLEAN`), then Done / Not done / Next.
 
 ### Stage 5 — Deliver
 

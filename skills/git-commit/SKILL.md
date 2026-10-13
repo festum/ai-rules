@@ -50,7 +50,7 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 Commit and push only after the human explicitly says "push". Until then, leave changes in the working tree.
 
-Exception: Hermes direct edits to system rule/config docs (hermes.md File Governance B) commit immediately; pushing still waits for the human.
+Exception: Hermes direct edits to system rule/config docs commit immediately; pushing still waits for the human.
 
 ## 4. Squash on push
 

@@ -20,17 +20,24 @@ Be fast. Review in this agent. Do not spawn subagents (no security / performance
 4. Post with `gh` only (including `gh api`). No MCP / web UI for PR comments.
 5. Write comments with skill `voice` **and** the ultra-short rules below. No AI markers. No code changes in already-approved PRs unless the issue is severe and the user confirms.
 6. Sync the base before judging: `git fetch origin`, then judge against `origin/<base>`. Never flag a change as missing without checking the latest base (Main Code Re-evaluation).
+7. Every finding passes the evidence gate (Workflow step 4) before it is drafted. A rule match or a single precedent is not a finding.
 
 ## Workflow
 
 1. **Spec** — Find the Jira key from the PR body or branch. Read acceptance criteria, requirements, edge cases, and linked docs.
 2. **Sync** — `git fetch origin`, then use the PR's actual base from metadata (`gh pr view --json baseRefName`), default `main`. Judge against `origin/<base>`, never a stale local `main` or an old GitHub view; check `mergeStateStatus` (e.g. `BEHIND`). The PR diff is three-dot (merge-base), so a change already in base after divergence will not appear in it and is not a gap.
 3. **Diff** — Read the PR diff and enough related-repo context to judge consistency.
-4. **Judge** — Combine Jira/spec gaps + consistency + logic. Severity: `blocker` / `important` / `nit`.
-5. **Draft** — Number every finding. For each: one-line English comment. Ask which numbers to post.
+4. **Judge** — Combine Jira/spec gaps + consistency + logic. Severity: `blocker` / `important` / `nit`. Evidence gate, all three per finding:
+   - **Failure:** one line of concrete input or state leading to a wrong outcome that nothing already mitigates. Verify it by observation where you can: run the affected test, reproduce it locally, or check logs or live data. Read the producer or caller for cross-service behavior. Tag the finding `verified` or `inference`. An `inference` finding goes out as a question.
+   - **Precedent:** the same pattern in the repo's existing code and in ≥3 sibling-repo precedents. If the team already does what the PR does, it is not a finding.
+   - **Cost:** the fix costs less than the risk, including side effects of recent changes.
+
+   Missing failure or precedent → turn it into a question or drop it. Personal or agent rules are not team standards; check that the team actually applies a rule before citing it.
+5. **Draft** — Number every finding. For each: the failure line, how it was verified (`verified: <command/log>` or `inference`), the precedent checked, and a one-line English comment. Ask which numbers to post.
 6. **Dedupe** — Before posting, check existing threads. Prefer reply-in-thread over a new inline comment. Resolve threads the author already fixed/acknowledged.
 7. **Post** — Publish only selected items at the matching file/line via `gh`.
 8. **Close out** — If no blockers remain after posting: approve. If nothing material to say: leave a short `"testing approved"` general comment.
+9. **Re-check on reply** — When the author pushes back or pushes new commits, re-read the latest diff and threads and re-run the verification before replying. Do not defend a finding on its original basis.
 
 Skip Jira only if it is unreachable after one try; then judge from PR body + diff and say so.
 

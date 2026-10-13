@@ -13,13 +13,13 @@ Runs one repo at a time: do steps 1-8 for the current repo, pause for the human 
 
 - Read the target repos from `PROJECT_REPOS` in `~/.ai-rules.local.md`, format `PROJECT_REPOS=[owner/repo-a, owner/repo-b]`. If `PROJECT_REPOS` is missing, ask user for input and add it to `~/.ai-rules.local.md`.
 - Missing or empty → ask the user for the list. Never guess, never scan parent folders.
-- State: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`, key `T-<YYYYMMDD>-dependabot` (no branch or worktree needed). On start, read STATE.md so already-merged PRs are not reprocessed; after each step update `## Status` / `## Verification` and append one `<UTC> dependabot <event>` line to `log.md` (rules.md §8).
+- State: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`, key `T-<YYYYMMDD>-dependabot` (no branch or worktree needed). On start, read STATE.md so already-merged PRs are not reprocessed; after each step update `## Status` / `## Verification` and append one `<UTC> dependabot <event>` line to `log.md`.
 
 ## 1. Find the PRs
 
 - `gh pr list --author app/dependabot` in the current repo. Trust the author login, never the `[dependabot]` title alone.
 - Handle them one at a time until none remain.
-- No open PRs → record it, report `CLEAN`, and go straight to the pause in step 8.
+- No open PRs → record it, report the verdict in prose (no trailing `CLEAN`), and go straight to the pause in step 8.
 
 ## 2. Discover the repo's guards and deploy flow
 
@@ -36,7 +36,7 @@ Runs one repo at a time: do steps 1-8 for the current repo, pause for the human 
 
 - `gh pr merge <pr> --auto --squash`, then `gh pr review <pr> --approve`.
 - Never merge manually. If auto-merge is disabled on the repo, or branch protection needs more approvals than this, stop and report instead.
-- All comments and commands go through `gh`, never MCP (rules.md §3).
+- All comments and commands go through `gh`, never MCP.
 
 ## 5. Stale PRs
 
@@ -58,5 +58,5 @@ Runs one repo at a time: do steps 1-8 for the current repo, pause for the human 
 
 - Watch the repo's logs/metrics for 15 minutes after the deploy.
 - Abnormal (error-rate spike, deploy errors, failed post-deploy checks) → stop, investigate urgently, report; do not continue.
-- End the round with `CLEAN` or `ISSUES: <list>` (rules.md §5), update STATE.md, append a `log.md` line.
+- Record the round verdict in STATE.md and append a `log.md` line; report it in prose, `ISSUES: <list>` only when failed, no trailing `CLEAN`.
 - Pause and wait for the user's signal before moving to the next repo.

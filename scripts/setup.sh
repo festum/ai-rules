@@ -326,7 +326,6 @@ setup_rules() {
     fi
 
     # Source of truth: system/rules.md → each editor's native rules path
-    create_symlink "windsurf" "$RULES" "$HOME/.codeium/windsurf/memories/global_rules.md"
     create_symlink "cursor" "$RULES" "$HOME/.cursor/memories/global_rules.md"
     create_symlink "claude" "$RULES" "$HOME/.claude/CLAUDE.md"
     create_symlink "codex" "$RULES" "$HOME/.codex/memories/global_rules.md"
@@ -351,7 +350,6 @@ setup_rules() {
     print_status "Editor rules setup complete!"
     echo ""
     echo -e "${BLUE}📁 Linked system/rules.md into:${NC}"
-    echo "  ✅ Windsurf: ~/.codeium/windsurf/memories/global_rules.md"
     echo "  ✅ Cursor: ~/.cursor/memories/global_rules.md"
     echo "  ✅ Claude: ~/.claude/CLAUDE.md"
     echo "  ✅ Codex: ~/.codex/memories/global_rules.md"
