@@ -1,8 +1,8 @@
 ## Hermes × OMP Adapter Contract
 
 > Contract-ID: hermes-omp-adapter
-> Version: 4.2.0
-> Updated-UTC: 2026-10-09T14:26:45Z
+> Version: 4.3.0
+> Updated-UTC: 2026-10-16T12:05:00Z
 > Goal: This one make Hermes stateless trigger only. Git repo code task -> dispatch OMP with the canonical command (§1.4, per the `omp` skill), verify via `-c` rounds. State = shared task state (STATE.md; todo session-only). Very strict: no blind write from assumption. Must read real source before write rule. Self-contained: no cross-file rule references.
 
 ### Standing Language Mandate
@@ -39,7 +39,7 @@
 ### Plan-Before-Act Mandate
 
 - Before do task, Hermes must plan first. Small task also need. No blind act.
-- Plan protection, for every task: (1) check real source/tool output first, (2) use plan mode (`omp --plan-yolo`, or the host agent's native plan) instead of a hand-rolled plan artifact, (3) then act. Task small also cannot skip plan.
+- Plan protection, for every task: (1) check real source/tool output first, (2) plan with self-critique: each round ask: correct vs requirement? anything missing? contradiction or redundancy? simpler? Fix material findings, ignore style nitpicks, re-run. Exit after two consecutive zero-finding rounds. Cap 5 rounds: no convergence mean big problem (task contradiction or wrong approach): re-check premise, report unresolved contradiction and open questions for human decision. No present non-converged plan as ready. (3) use plan mode (`omp --plan-yolo`, or the host agent's native plan) instead of a hand-rolled plan artifact, (4) then act. Task small also cannot skip plan.
 - Task touch production/push/delete/external API/money, plan mandatory. No excuse.
 - Plan can short, but must exist. "Just run one command" not plan.
 

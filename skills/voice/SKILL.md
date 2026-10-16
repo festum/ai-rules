@@ -3,8 +3,8 @@ name: voice
 description: Use for every generated, rewritten, reviewed, or edited output in any language, medium, or format.
 user-invocable: true
 metadata:
-  version: "1.0.5"
-  updated-utc: "2026-10-15T16:30:00Z"
+  version: "1.0.7"
+  updated-utc: "2026-10-16T11:31:00Z"
 ---
 
 # Eng: universal communication style
@@ -75,6 +75,10 @@ Disagree / debate (when not applying the suggestion):
 4. End with `WDYT?` only on real open questions (design fork, trade-off). That close is required for those turns; skip it on closed factual rejects.
 
 Good: `IMO the converter already owns this; per-mutation checks would duplicate it. WDYT?`
+
+### Handover drafts (the human will paste)
+
+Drafts the human will post themselves (Slack replies, PR comments, ticket updates) stay high-level: the outcome or ask only, in 1-3 sentences. No implementation details: no file paths, mechanisms, commands, numbers, or internal names; leave a short `<placeholder>` where a detail belongs. This is not a competing register: pick the register first for tone and language, then apply this rule on top when the human will paste the result. It never applies to direct conversation.
 
 ### Public and technical writing
 
