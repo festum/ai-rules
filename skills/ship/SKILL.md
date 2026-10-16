@@ -1,68 +1,66 @@
 ---
 name: ship
-description: 查看、設計、執行 Jira ticket，建立 PR 並處理後續 Review 評論、CI 與 Dev 部署，直到 PR Approved；沒有 ticket 的 PR（如 dependabot、infra）也走同一流程
+description: Inspect, design, and execute a Jira ticket, open the PR, then handle review comments, CI and Dev deploy until approved; ticketless PRs (dependabot, infra) run the same flow from step 4
 user-invocable: true
 allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-commit
 ---
 
-查看並理解 Jira ticket (經 MCP)，結合 Codebase/PRD/PR 評論前後文完成任務設計、執行、PR 建立與後續 Review 修正。
+Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to complete the task design, implementation, PR creation and review fixes. Ticketless PRs (dependabot, infra) start at step 4 and skip every Jira step.
 
-沒有 Jira ticket 的 PR（dependabot、infra 等）直接從第 4 步開始，略過所有 Jira 相關步驟。
+## Priorities and principles
+1. Weight: review comments > Jira ticket > PRD. PRD may be stale; on conflict decide by Jira + comments + existing implementation.
+2. Cross-service contract / enum mapping:
+   - Wire DTOs differ from domain models. Never cast raw transport (Wire Payload) strings straight into enums; isolate the wire protocol from internal domain logic through a dedicated mapper layer.
+   - Verifying producer code always includes the serialization definitions (annotations, field names, kebab-case / snake_case conversions, enum custom text). Never guess transport strings from producer-internal constant names.
+   - Polymorphic payloads (`type`/`kind` etc.) get a dedicated Truth Table. Never force one struct onto them.
+   - Mapping includes a fallback for unknown enum values so future producer fields cannot crash deserialization.
+3. Raw payload HTTP tests (no pure unit interface stubs):
+   - External API communication: never verify with client/interface mocks alone; they hide JSON deserialization and mapping errors.
+   - Always use an HTTP-level mock (WireMock, MSW, MockWebServer) with the real raw JSON response body from Producer/Postman/Log to test deserialization and mapping.
+4. Minimal change and convergence: prefer reusing existing logic. After every merge of the base branch, re-scan the codebase for newly reusable tools and spec changes that must be synced.
+5. No out-of-scope changes; no unnecessary refactoring.
+6. Repeat invocations: skip completed steps (branch already made, PR already opened, never redo them), but always reload the Jira ticket and PR comments to confirm latest state.
+7. Session continuity: mid-task follow-ups (from anyone, not only the PR commenter) are answered in the current session; continue context via the runtime session (OMP `-c` / `-r`). Restart investigation only when the question is outside session context.
 
-## 優先順序與原則
-1. 權重順序：他人 Review 評論 > Jira Ticket > PRD（PRD 視為可能過期，矛盾時以 Jira + 評論 + 現有實作為準）。
-2. 跨服務 Contract 與 Enum Mapping 規範：
-   - Wire DTO ≠ Domain Model：嚴禁對傳輸層 (Wire Payload) 原始字串直接進行列舉/Enum 強制轉型。必須經由專屬轉換層 (Mapper) 明確隔離外部傳輸協定與內部 Domain 邏輯。
-   - 鎖定 Serialization 細節：查驗 Producer Code 時，必須確認 JSON 序列化定義（如 Annotation、Field Name、kebab-case / snake_case 轉換或 Enum Custom Text），嚴禁僅憑 Producer 內部的常數名稱猜測傳輸字串。
-   - 多型 Payload 獨立處理：針對包含 `type`/`kind` 等區分多型的 Payload，必須建立 Truth Table 獨立處理，嚴禁以單一結構硬套。
-   - 防禦性解析與 Fallback：Mapping 邏輯必須包含未知列舉值 (Unknown Enum) 的退回機制，避免 Producer 未來擴充欄位時導致反序列化崩潰。
-3. 拒絕純 Unit Interface Stubs (Raw Payload HTTP 測試原則)：
-   - 涉及外部 API 通訊時，禁止僅以 Client/Interface 方法 Mock 作為測試驗證（這會隱藏 JSON 反序列化與 Mapping 錯誤）。
-   - 必須使用 HTTP 層級 Mock 工具（如 WireMock, MSW, MockWebServer 等），填入從 Producer/Postman/Log 取得的真實 Raw JSON Response Body 進行反序列化與 Mapping 整合測試。
-4. 最小變更與架構收斂：優先重用既有邏輯。每次 Pull/Merge Main 後，必須重新比對 Codebase，確認 Main 最新變更是否有新增可重用的共用工具，或規格調整需隨之同步。
-5. 範圍約束：不做 Out of scope 變更，也不做非必要 refactoring。
-6. 狀態延續與重複呼叫：此技能可能被多次呼叫。重複執行時不重複已完成的步驟（如建立分支、重複建立 PR），但每次執行皆需重新載入 Jira ticket 與 PR 評論確認最新狀態。
-7. Session 續用：任務中途的追問（含 PR commenter 以外的他人插問）直接以現有 session 回答，不重啟調查；用 runtime 的 session 續用（OMP `-c` / `-r`）延續上下文，唯有超出 session 理解範圍才重新調查。
+## Workflow
 
-## 執行流程
+### 1. Prepare and branch
+- Read or create the shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite an existing `Scope & constraints`. Fill `repos:` on creation; a ticketless task names the branch after the T- key.
+- Reload the Jira ticket and fill any missing spec.
+- Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
+- Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
+- Use the built-in `plan` to break the task down; track state with `todo`.
+- Branch: if none exists, run `git pull origin <base>`, then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
 
-### 1. 準備與分支
-- 讀取或建立共用狀態檔 `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`（key = ticket ID）；已存在的 `Scope & constraints` 不改寫。建立時填 `repos:`；任務無 ticket 時，分支以 T- key 命名。
-- 重新載入或讀取 Jira Ticket 並補全缺漏規格。
-- 找出相關 repo：使用者有提供專案地圖時（例如上層資料夾的 `CLAUDE.md` / `AGENTS.md`，列出 repo、用途與別名）先查地圖，地圖找不到才搜尋；確定 repo 後只在這些 repo 與其 worktree 內搜尋，不要整個上層資料夾掃描。
-- 團隊慣例盤點：目標 repo 為新 service，或某類寫法（持久層、測試、Migration、Commit 格式）前例少於 3 個時，先到同團隊已知高度活躍開發中的 repo 整理該類慣例，於 plan 列出「要遵循的慣例」並附出處檔案；嚴禁僅照抄目標 repo 內最近的單一前例，偏離慣例必須列為待人類決定的事項。
-- 使用內建 `plan` 進行任務拆解，並以 `todo` 追蹤執行狀態。
-- 若尚未建立分支，執行 `git pull origin main` 後建立 worktree 分支 `<ticket-id>`（即 Jira ticket ID）；若已在對應分支則直接延續。
+### 2. Implement and verify
+- Contract/enum alignment and raw payload tests first:
+  1. Verify the producer repo's serialization and enum definitions; produce the Truth Table.
+  2. Build HTTP-level raw payload tests from the producer's real payload shape; write the failing test first to validate deserialization and mapping.
+  3. Complete the implementation and make the test pass.
+- Full CLI verification: after implementing or fixing, run all lint and tests so the local state passes and Push leaves no CI/CD failure.
+- Self code review (read `git diff`):
+  1. No noise: no debug prints, debug code, unrelated formatting, or unused imports.
+  2. Defensive: null/empty checks, exception handling, and boundary conditions all present.
+  3. Consistency: logic matches the Truth Table and Jira spec 100%.
+  (Do not proceed until all three pass.)
+- At stage end update STATE.md: `## Status` and `## Verification` (one line each) and append one line to `log.md`.
 
-### 2. 實作與驗證
-- Contract/Enum 對齊與 Raw Payload 測試先行：
-  1. 查驗 Producer Repo 的 Serialization 與 Enum 定義，產出對照表 (Truth Table)。
-  2. 使用 Producer 真實 Payload Shape 建立 HTTP 層級 Raw Payload 測試，先寫 Failing Test 驗證反序列化與 Mapping 邏輯。
-  3. 完成實作並讓測試 Pass。
-- CLI 完整驗證：實作與修復後，必須使用 CLI 跑過所有 lint 與測試，確保本地 pass，保障 Push 後 CI/CD pipeline 必然不會失敗。
-- 自我 Code Review (審視 `git diff`)：
-  1. 無雜質：無臨時印表/Debug Code/無關的 Formatting/未使用的 import。
-  2. 防禦性：Null/Empty 檢查、例外處理與邊界條件皆具備。
-  3. 一致性：對照原本產出的 Truth Table 與 Jira 規格，確認邏輯 100% 契合。
-  (未全部通過前禁止進入下一步)
-- 階段結束時更新 STATE.md：`## Status` 與 `## Verification`（一行一筆），並在 `log.md` 附加一行。
+### 3. Human confirmation, push and PR creation
+- Hand the results and state (three lines: Done / Not done / Next) to the human for final confirmation. Never push before the human explicitly says "push"; before that, commits follow the `git-commit` mode rule (checkpoints allowed in auto mode).
+- After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, re-evaluate base code twice (re-evaluation; re-run CLI verification when anything changed), then squash unpushed work into one commit.
+- Create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
+- After the PR exists: put the URL in STATE.md `## Sessions` and update `## Status`.
 
-### 3. 人類確認、Push 與 PR 建立
-- 將修改成果與狀態（採用 3 行格式：Done / Not done / Next）交給人類做最終確認。必須等到人類明確指示「push」後才可進行 Commit 與 Push。
-- 獲許 Push 後依 `git-commit`：merge main 並解衝突（以本分支為主）、Merge 後二度審視 (Main Code Re-evaluation，有調整需補跑 CLI 驗證)、將未 push 的修改整理成單一 commit。
-- 建立 PR：使用 `open-pr` 建立 PR，Title/Reviewers/Linked issues 需合規與用模版；Description 僅留極簡單段英文 Summary，無 AI 標記。
-- PR 建立後把網址寫入 STATE.md 的 `## Sessions`，並更新 `## Status`。
+### 4. Review, CI and Dev deploy loop
+Loop: state -> collect unresolved threads -> judge -> fix locally -> lint/tests -> draft replies -> human confirmation -> commit/push -> wait CI -> reply per thread -> deploy Dev -> repeat.
+Stop conditions (both hold): no unresolved threads (including new replies from the reviewer on answered threads) and `reviewDecision` = `APPROVED`. On design disagreement, or about 3 fix rounds with CI still failing, pause and ask the human.
+Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL and unresolved thread count; pause points (waiting on human approval, etc.) write Done / Not done / Next under `## Status`.
 
-### 4. PR Review、CI 與 Dev 部署循環
-循環：狀態 → 收集未回覆 thread → 判斷 → 本地修正 → lint/測試 → 草擬回覆 → 人類確認 → commit/push → 等 CI → 逐 thread 回覆 → 部署 Dev → 重來。
-停止條件（兩者皆成立）：沒有未回覆的 thread（含已回覆 thread 上 reviewer 的新回覆），且 `reviewDecision` 為 `APPROVED`。遇到設計分歧，或約 3 次修正 → CI 仍失敗時，暫停並詢問人類。
-- 每一輪更新 STATE.md：header `status:` 設 pr-loop；`## Status` 寫 PR 網址與未回覆 thread 數；遇到暫停點（等待人類核准等）把 Done / Not done / Next 寫進 `## Status`。
-
-- 狀態：
-  - 有 ticket 時重新載入 Jira ticket 檢查最新更新。
-  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` 與 `gh pr checks`；區分人工核准類 job（change-record / sign-off，未核准前一定是紅的）與真正的失敗，前者不算 CI 失敗。失敗 log 用 `gh run view <run-id> --log-failed`。
-- 收集未回覆 thread：
-  - 用 `gh api` 讀 inline 與 conversation 評論，並以 GraphQL 取得 thread 狀態：
+- State:
+  - With a ticket: reload the Jira ticket for updates.
+  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` and `gh pr checks`; separate approval-gate jobs (change-record / sign-off, always red until approved) from real failures; the former is not a CI failure. Failure logs: `gh run view <run-id> --log-failed`.
+- Collect unresolved threads:
+  - `gh api` reads inline and conversation comments; GraphQL for thread state:
     ```bash
     gh api graphql -f query='
       query($owner:String!,$repo:String!,$number:Int!) {
@@ -75,30 +73,31 @@ allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-co
         }
       }' -F owner=... -F repo=... -F number=...
     ```
-  - 需處理：未 resolved，且（最後一則不是自己，或自己從未回覆）。已回覆且 reviewer 沒有新回覆的 thread 跳過。
-  - 檢查既有 `todo` 與 `plan`，跳過已完成項目；建立編號清單與真相對照表 (Truth Table)：file/line、作者、要求、相關程式碼。
-  - 交叉比對 Jira 與 PRD，若 PRD 矛盾於 `todo` 標記 `PRD-stale`；超出 Jira 範圍者標記 `deferred` 不於此 PR 實作。
-- 判斷：在本 agent 內逐則分類為 accept / partial / reject / ask（產品或設計問題列入詢問，不要猜）。diff 超過 400 行，或涉及安全、付款、解析外部輸入時，才額外跑 multi-lens review（Claude built-in `/code-review`，或唯讀 omp：`omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`，依 `omp` skill 做 preflight 與 liveness 檢查）輔助判斷；各 lens **並行**執行（只取 findings，不從它發佈任何東西）。禁用 omp 預設 task 模式（那是 implement + multi-round verify，會寫碼又極慢）。
-  - 優先修程式而不是爭論；合理建議就改，錯誤或有害的建議才拒絕，不可默默忽略。
-- 本地修正：
-  - 使用 `edit` 修正，優先重用既有邏輯；有衝突就依 `git-commit` merge main 並二度審視。
-  - 補齊對應的單元測試與 Raw Payload HTTP 測試（關鍵路徑必須包含真實 Payload Shape 測試）。真正的 CI 失敗（lint / types / tests / build）也在此一併修正；不可為了變綠而削弱測試。
-  - 使用 CLI 跑過所有 lint 與測試，確保本地 pass；檢視 `git diff` 做自我 Code Review（無雜質、防禦性、Truth Table 一致性）。
-- 草擬回覆並等待人類（硬閘門）：
-  1. 用 `gh` 重新掃描 unresolved threads，確認預期修復項目皆已處理且無遺漏。
-  2. 列出編號表：`# | Thread | Decision | Local change | Draft reply`，並附上本輪 CI/衝突修正摘要。
-  3. 以三行狀態回報：Done / Not done / Next。
-  4. 在人類核准回覆並指示「push」之前，不 commit、不 push、不發任何留言。
-- 核准後：
-  1. 依 `git-commit` commit（只 stage 本輪修正）並 push。
-  2. 只等真正的 CI check（輪詢 `statusCheckRollup` 或指定 check 名稱），不要直接用 `gh pr checks --watch`，它會卡在人工核准類 job 上。真正的 check 失敗就回到本地修正並重新詢問。
-  3. CI 綠燈後，用 `gh` 逐 thread 回覆（inline reply / GraphQL `addPullRequestReviewThreadReply`）。
-  4. 透過 repo 既有的 Dev 部署 workflow/script 自動部署到 Dev（不另外詢問；不清楚是哪個 workflow 才問），回報結果，然後回到循環開頭。
-- 回覆規範：
-  - 僅回覆已百分百驗證的事實，尚待釐清者直說「去查驗 Producer Repo」，嚴禁過度承諾或搶先宣告完成。
-  - 每個 thread 只回一次並涵蓋所有要點；已回覆過的 thread 不新增留言，僅編輯既有內容，除非 reviewer 有新回覆。
-  - 接受 / 已修正：只給結論，通常 1~5 個英文單字（上限 12），如 `Fixed.` / `Done.` / `Out of scope.`；不還原機制、不列檔案/行號/數值，不重述 diff。
-  - 反駁 / 不採納：依 `voice` 的 PR review replies 規則：一句話給結論，判斷用 `IMO` / `I think` 標示，必要時補一句理由；只有真正開放的問題才以 `WDYT?` 結尾。
-  - 嚴禁中文、道歉贅詞、commit/SHA、重複資訊；使用技能 `voice` 產生英文回覆（`voice` 自帶 humanizer 步驟），與本規範衝突時以本規範為準。
-  - 只用 `gh` 發佈，不用 MCP 或網頁介面。不要擅自將 thread 標記成 resolved。
-- 不可 force-push 共用的 PR 分支，不擴大 PR 範圍。若沒有需要修改的地方也沒有未回覆 thread，回報狀態並持續觀察直到 Approved（或詢問是否要提醒 reviewer）。
+  - To process: unresolved, and (the last commenter is not me, or I never replied). Answered threads with no new reviewer reply: skip.
+  - Check existing `todo` and `plan`; skip finished items; build the numbered list plus Truth Table: file/line, author, ask, related code.
+  - Cross-check Jira and PRD: PRD contradicting `todo` -> mark `PRD-stale`; outside Jira scope -> mark `deferred`, not in this PR.
+- Judge: classify each thread in-agent as accept / partial / reject / ask (product or design questions go to ask; do not guess). Only when the diff exceeds 400 lines, or the change touches security, payments, or external input parsing, additionally run a multi-lens review (Claude built-in `/code-review`, or read-only omp: `omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`; follow the `omp` skill for preflight and liveness). Run lenses **in parallel** (take findings only; publish nothing from them). Never use omp's default task mode (implement + multi-round verify: writes code and is very slow).
+  - Fix over argue: apply reasonable suggestions; reject only wrong or harmful ones; never silently ignore.
+- Local fixes:
+  - Fix with `edit`, reusing existing logic; on conflict merge the base branch per `git-commit` and re-evaluate.
+  - Add unit tests and raw payload HTTP tests (key paths must include a real payload shape). Fix real CI failures (lint / types / tests / build) in the same round; never weaken tests to go green.
+  - Run all lint and tests via CLI until local pass; review `git diff` (no noise, defensive, Truth Table consistency).
+- Draft replies and wait for the human (hard gate):
+  1. Rescan unresolved threads with `gh`; confirm every expected fix is handled with nothing missed.
+  2. List the numbered table `# | Thread | Decision | Local change | Draft reply` plus this round's CI/conflict fix summary.
+  3. Report state in three lines: Done / Not done / Next.
+  4. Before the human approves the replies and says "push": no commit, no push, no comment.
+- After approval:
+  1. Per `git-commit`, commit (stage only this round's changes) and push.
+  2. Wait only for real CI checks (poll `statusCheckRollup` or a named check). Never `gh pr checks --watch`: it hangs on approval-gate jobs. A real check failure goes back to local fix and re-ask.
+  3. After CI green, reply per thread via `gh` (inline reply / GraphQL `addPullRequestReviewThreadReply`).
+  4. Deploy to Dev through the repo's existing workflow/script automatically (no extra ask; ask only when the workflow is unknown), report the result, then return to the loop start.
+- Reply rules:
+  - Reply only with 100%-verified facts; pending items say "checking the producer repo"; never overpromise or declare done early.
+  - Reply once per thread and cover every point; answered threads never get new comments, only edits to the existing reply, unless the reviewer replied again.
+  - Accept / fixed: conclusion only, usually 1-5 English words (cap 12), e.g. `Fixed.` / `Done.` / `Out of scope.`; no mechanism, no file/line/numbers, no diff restatement.
+  - Reject / not applying: one-sentence conclusion; mark judgment with `IMO` / `I think`; add one reason when needed; end with `WDYT?` only when truly open (see `voice` PR review replies).
+  - Never Chinese, apology filler, commit/SHA, or repeated info. Use the `voice` skill for English replies (`voice` includes humanizer); on conflict this doc wins.
+  - Publish only via `gh`, never MCP or the web UI; never mark threads resolved yourself.
+- Never force-push a shared PR branch; never widen PR scope. Nothing to fix and no unresolved threads: report state and keep watching until Approved (or ask the human whether to nudge the reviewer).
+- Merge the PR only on the human's explicit go-ahead, and only by whoever holds merge authority (Hermes, or the human when Hermes is absent); prefer Squash and merge (`git-commit` skill §5).

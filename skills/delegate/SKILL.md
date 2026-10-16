@@ -82,8 +82,8 @@ Read-only stage detection → short plan (which stage, which files this run touc
 
 #### 1.1 Set up the worktree
 
-1. Find the touched repos from the user's project map if one is provided (e.g. a `CLAUDE.md` / `AGENTS.md` in the parent folder listing repos, purposes, and aliases); fall back to searching only when the map has no match. From then on, search only inside those repos and their worktrees, never across the whole parent folder. Update every touched repo to the latest default branch. Reuse an existing worktree/branch for the ticket if one exists (`git worktree list`, `git branch -a | grep -i <TICKET>`).
-2. Otherwise create a worktree on branch `<TICKET>` from the default branch. A task without a ticket uses the `T-` key as the branch name: `T-<YYYYMMDD>-<kebab-short-name>`.
+1. Find the touched repos from the user's project map if one is provided (e.g. a `CLAUDE.md` / `AGENTS.md` in the parent folder listing repos, purposes, and aliases); fall back to searching only when the map has no match. From then on, search only inside those repos and their worktrees, never across the whole parent folder. Update every touched repo to the latest base branch. Reuse an existing worktree/branch for the ticket if one exists (`git worktree list`, `git branch -a | grep -i <TICKET>`).
+2. Otherwise create a worktree on branch `<TICKET>` from the base branch. A task without a ticket uses the `T-` key as the branch name: `T-<YYYYMMDD>-<kebab-short-name>`.
 3. When creating `STATE.md`, fill the `repos:` header with the touched repos.
 
 #### 1.2 Gather sources and ingest
@@ -98,7 +98,7 @@ Read-only stage detection → short plan (which stage, which files this run touc
 Re-judge **every** conflicting pair, including any a tool flagged as auto-resolved, with these rules, and record the verdict per row in the Inconsistency Register (written into the plan in Stage 2):
 
 - Evidence: ticket updated/comment dates, wiki version dates, `git log -1 --format=%cI -- <path>`, PR merge dates.
-- The newest deliberate statement wins; merged code on the default branch beats a doc older than the merge; a reviewer/owner comment beats the ticket body it postdates.
+- The newest deliberate statement wins; merged code on the base branch beats a doc older than the merge; a reviewer/owner comment beats the ticket body it postdates.
 - Timestamps don't settle it, or the newest source looks accidental → `NEEDS-HUMAN`; ask before planning.
 - Sync every stale source: stale code or repo docs → the ticket's requirements in the plan; stale ticket → draft the exact edit, apply via the tracker tool after approval; stale wiki/RFC/PRD → draft a minimal edit to the existing structure (preserve comment anchors and element IDs, never rewrite the page), apply only after approval through a write path the user allows.
 
@@ -138,7 +138,7 @@ When it finishes, come back and run: /delegate
 
 - After the first turn, keep the executor honest with the `omp` skill's `-c` verify loop.
 - For gap rounds the executor runs against the `v<N+1>` gap plan.
-- omp liveness rules are in the `omp` skill. Executors must not push or open PRs.
+- omp liveness rules are in the `omp` skill. Executors must not push, must not merge PRs, and must not open PRs.
 - Add `<TICKET>` to the come-back command only when it will run from a different session or directory.
 - Then the three lines Done / Not done / Next.
 

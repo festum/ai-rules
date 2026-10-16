@@ -23,18 +23,19 @@ Runs one repo at a time: do steps 1-8 for the current repo, pause for the human 
 
 ## 2. Discover the repo's guards and deploy flow
 
-- Find out whether this repo has an approver/recording guard (a CI job that stays red until a human signs off in the pipeline) and a manual production deployment flow (a post-merge deploy workflow waiting for manual approval).
+- Find out whether this repo has an approval-gate job (a CI job that stays red until a human signs off in the pipeline) and a manual production deployment flow (a post-merge deploy workflow waiting for manual approval).
 - If either exists, remember its exact job/workflow name in STATE.md; steps 3, 6 and 7 apply those names to this repo. If it does not exist, the step that needs it is skipped.
 
 ## 3. Pre-checks (any failure: do not approve)
 
 - Changes are limited to dependency manifests / lockfiles. Anything else → leave the PR untouched, record it, and raise it at the pause point.
 - A non-dependabot user pushed a commit → same: record it, raise it at the pause point, and continue to the next dependabot PR without blocking on the question.
-- Real CI checks are green. The approver/recording guard from step 2 (if any) is exempt: it stays red until a human signs off, so it is not a CI failure — ignore it when judging CI health and never `gh pr checks --watch` on it. A genuinely failing check → record it, raise it, do not approve.
+- Real CI checks are green. The approval-gate job from step 2 (if any) is exempt: it stays red until a human signs off, so it is not a CI failure — ignore it when judging CI health and never `gh pr checks --watch` on it. A genuinely failing check → record it, raise it, do not approve.
 
 ## 4. Approve and auto-merge
 
 - `gh pr merge <pr> --auto --squash`, then `gh pr review <pr> --approve`.
+- Merge authority per `git-commit` §5: arming here is Hermes's call (or the human's when Hermes is absent) and still needs the human's go-ahead. A delegated executor stops and emits `BLOCKED` instead.
 - Never merge manually. If auto-merge is disabled on the repo, or branch protection needs more approvals than this, stop and report instead.
 - All comments and commands go through `gh`, never MCP.
 

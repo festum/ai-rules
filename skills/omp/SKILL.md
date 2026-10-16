@@ -41,7 +41,7 @@ Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp`
 - Preflight before dispatch: `command -v omp`, then `omp --version`. Missing or non-zero → stop, report `BLOCKED`. Never assume OMP ran.
 - Capture **exit code and stderr**, not just stdout. Exit ≠ 0, empty stdout, or no result → failure.
 - Proof it started: a new `~/.omp/agent/sessions/<slugified-cwd>/*.jsonl` after dispatch (no file → OMP never ran). `omp ps --json` adds daemon-supervised state.
-- Silence rule: no first output within 30s and no session file → kill and report `BLOCKED: omp not started`; do not wait for `--max-time`.
+- Silence rule: no first output within 30s and no session file → kill and report `BLOCKED: omp not dispatched`; do not wait for `--max-time`.
 - A `BLOCKED` report must also be written into STATE.md `## Gates`: reason plus the authorization needed. Stdout is lost when the session ends.
 - Stream watchdog: `providers.streamFirstEventTimeoutSeconds` / `providers.streamIdleTimeoutSeconds` (config, seconds; target 120s) bound first-event and inter-event silence so a wedged stream exits non-zero; env `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` / `PI_STREAM_IDLE_TIMEOUT_MS` (ms, `0` disables) override per run.
 - Debug a hang: `PI_DEBUG_STARTUP=1` (stderr `[startup] <phase>` markers survive a hard hang), `PI_TIMING=1`.

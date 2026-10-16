@@ -15,25 +15,29 @@ When rules conflict, safety and explicit human instructions take priority, then 
 - Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve.
 - Headless runs (`-p` / `--approval-mode=yolo`) have no interactive prompt. On an ask boundary, stop and emit `BLOCKED: <reason>` plus the authorization needed, and hand off to the upper layer or a human.
 - No Hermes: the default YOLO does not apply, and the ask boundary above applies to every action rather than only the four listed cases. Plan before executing; ask questions via a selectable menu.
+- Plan critique: while planning, interrogate the plan each round: correct vs requirement? anything missing? contradiction or redundancy? simpler? Fix material findings, ignore style nitpicks, re-run; exit after two consecutive zero-finding rounds. Cap 5 rounds: no convergence = major problem (contradictory task or wrong approach): re-check the premise, surface the unresolved contradiction and open questions for human decision; never present a non-converged plan as ready.
 
-## 2. Git Conventions and Main-Branch Sync
+## 2. Git Conventions and Base-Branch Sync
 
-- Follow the `git-commit` skill for commit messages, merging main (conflicts in favor of this branch, then re-check main for reusable modules or spec changes), squash on push, and safe stashing.
-- Push boundary: after implementing and verifying, wait for an explicit human "push" before committing and pushing.
+- Follow the `git-commit` skill for commit messages, merging the base branch (conflicts in favor of this branch, then re-check the base branch for reusable modules or spec changes), squash on push, and safe stashing.
+- Commit boundary: interactive sessions wait for the human's instruction before committing; auto mode (dispatched runs, e.g. Hermes→OMP) may commit checkpoints. Push waits for an explicit human "push", and every push first squashes all not-yet-pushed work (commits plus uncommitted changes) into one commit (`git-commit` skill).
 
 ## 3. Skill Routing and External-Service Control
 
-- Mandatory Jira routing: any work on Jira tickets, related PR creation, or review-comment fixes must invoke and follow the `ship` skill; plan-only work (plan, then review another agent's implementation) uses `delegate` instead. If the skill is unavailable, stop and report; do not substitute another process.
-- Mandatory PR routing: creating a PR always requires invoking and following the `open-pr` skill, on top of any task-level skill (e.g. `ship`). If the skill is unavailable, stop and report; do not create the PR another way.
+Below: what to invoke. If a skill is unavailable or fails, stop and report; never substitute another process.
+
+- Mandatory Jira routing: any work on Jira tickets, related PR creation, or review-comment fixes must invoke and follow the `ship` skill; plan-only work (plan, then review another agent's implementation) uses `delegate` instead.
+- Mandatory PR routing: creating a PR always requires invoking and following the `open-pr` skill, on top of any task-level skill (e.g. `ship`).
 - MCP write restriction: never write to external services through MCP. The only exceptions are Jira and memory (Hindsight/Memory) updates. Route all other writes through a non-MCP path; if none exists, stop and report.
 - Confluence editing: never rewrite a whole page. Edit the existing structure in HTML, minimally and targeted, preserving inline comment anchors and local IDs. If no non-MCP write path exists, stop and report.
 
 ## 4. Surgical Code Maintenance (Minimal Diff Control)
 
-- Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. If the Producer repo is inaccessible, stop and report; do not guess from internal constant names.
+- Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. Producer repo inaccessible -> stop and report (no guessing from internal constant names).
 - Raw-payload HTTP testing: for external communication, do not test only with client or interface mocks. Use an HTTP-level mock (e.g. WireMock, MSW, MockWebServer) with real raw JSON response bodies to validate deserialization.
 - Zero speculative code: do not add unrequested features, placeholder interfaces, kitchen-sink options, or unnecessary Log/Metrics/Tracing abstraction layers.
 - Minimal diff: do not incidentally change nearby formatting, comments, or unrelated logic. Every changed line must trace to this task's request. Clean up orphaned code only when this change invalidates it; do not delete pre-existing dead code on your own.
+- No new comments in code. Put required rationale in the commit message, PR description, or direct reply instead.
 
 ## 5. Pre-Completion Exit Criteria
 
@@ -44,7 +48,7 @@ Before final confirmation, review the git diff (staged and unstaged) and confirm
 
 Reporting contract: `CLEAN` / `ISSUES: <list>` is a machine verdict, not a chat signature.
 - Record: every verification round writes `- <UTC> <command or check> → CLEAN|ISSUES: <list>` to `STATE.md` `## Verification`.
-- Machine outputs: verify-loop rounds (omp `-c`, only when you run that loop) still end with exactly one line `CLEAN` or `ISSUES: <list>` for the parser.
+- Machine outputs: verify loop rounds (omp `-c`, only when you run that loop) still end with exactly one line `CLEAN` or `ISSUES: <list>` for the parser.
 - Chat replies to a human: lead with the verdict in prose; append `ISSUES: <list>` only when something failed; no trailing `CLEAN`.
 - When delivering results or a PR: three lines Done / Not done / Next, verdict first in prose.
 - Reply drafts for the human to paste (Slack, PR comments): invoke `voice` first, then hand over raw markdown in a ```markdown fenced block so it copies as-is (never a rendered `>` quote).
@@ -141,7 +145,7 @@ Interface contract for every tool call. Source: Yang et al., SWE-agent (arXiv:24
 
 - One command per turn: one primary tool call (a tight read/edit batch is still one action); narration minimal. Prefer fixing by config/data over source edits.
 - Line-number windows, no continuous scroll: locate first with grep (line numbers), then read one bounded window (`sed -n 'A,Bp'`, ≤100 lines); never consecutive scroll of a whole file.
-- Bounded output: any command output over run truncates at 100 lines (`head -100` or editor tool limit); zero output means explicit success line, never silence.
+- Bounded output: any command output truncates at 100 lines (`head -100` or editor tool limit); zero output means explicit success line, never silence.
 - Lint before edit: run the file's lint/format gate before an edit to it; gate fail → abort the edit, address the gate fail first, do not push through; no gate defined for that file type → say so once and proceed.
 - Edit loop brake: after 3 turns editing the same file without passing the gate, stop and emit `BLOCKED: aci edit-loop`.
 - Search breadth cap: one listing round lists only file names, hard cap 50 hits (`find`, not `ls -R`); per-file content read falls to the line window rule above.
