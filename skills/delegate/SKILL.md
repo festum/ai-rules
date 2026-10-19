@@ -2,7 +2,7 @@
 name: delegate
 description: ship without implementing. Investigate all related repos and docs, reconcile conflicting sources, produce plans that a cheaper agent (omp, opencode, Cursor, smaller Claude model) executes, verify the result, then push, open the PR, and turn review comments and CI failures into new plans until the PR is approved.
 user-invocable: true
-allowed-tools: read, write, edit, grep, bash, github, todo, ask, agent
+allowed-tools: read, write, edit, grep, bash, github, todo, ask, agent, omp
 ---
 
 # delegate
@@ -84,7 +84,7 @@ Read-only stage detection → short plan (which stage, which files this run touc
 
 1. Find the touched repos from the user's project map if one is provided (e.g. a `CLAUDE.md` / `AGENTS.md` in the parent folder listing repos, purposes, and aliases); fall back to searching only when the map has no match. From then on, search only inside those repos and their worktrees, never across the whole parent folder. Update every touched repo to the latest base branch. Reuse an existing worktree/branch for the ticket if one exists (`git worktree list`, `git branch -a | grep -i <TICKET>`).
 2. Otherwise create a worktree on branch `<TICKET>` from the base branch. A task without a ticket uses the `T-` key as the branch name: `T-<YYYYMMDD>-<kebab-short-name>`.
-3. When creating `STATE.md`, fill the `repos:` header with the touched repos.
+3. When creating `STATE.md`, fill the `repos:` header with the touched repos, and name the task's omp session after the key; record it in `## Sessions` as `<name> (<id>) (<cwd>)` when the session starts (resume by id; see the `omp` skill).
 
 #### 1.2 Gather sources and ingest
 
@@ -138,7 +138,8 @@ When it finishes, come back and run: /delegate
 
 - After the first turn, keep the executor honest with the `omp` skill's `-c` verify loop.
 - For gap rounds the executor runs against the `v<N+1>` gap plan.
-- omp liveness rules are in the `omp` skill. Executors must not push, must not merge PRs, and must not open PRs.
+- omp liveness rules are in the `omp` skill. Executors must not push, must not merge PRs, and must not open PRs. Push stays with the controller (push gate: `git-commit` §3; Stage 5).
+- Session continuity: one omp session per task. Before hand-off read `STATE.md ## Sessions`; if this task already has a session, resume it (`omp -p -r <id> …`) instead of starting a fresh session (see the `omp` skill).
 - Add `<TICKET>` to the come-back command only when it will run from a different session or directory.
 - Then the three lines Done / Not done / Next.
 
@@ -158,8 +159,8 @@ When it finishes, come back and run: /delegate
 
 ### Stage 5 — Deliver
 
-1. Report Done / Not done / Next and wait for the human to say "push". Never commit or push before that.
-2. After "push": follow `git-commit` (merge the base, re-check it, re-run lint/tests, squash into one commit), push, then open the PR with `open-pr`.
+1. Report Done / Not done / Next and wait for the human to say "push" (push gate: `git-commit` §3). Never commit or push before that.
+2. After the push gate opens: follow `git-commit` (merge the base, re-check it, re-run lint/tests, squash into one commit), push, then open the PR with `open-pr`.
 3. Wait for the real checks; failures go to Stage 6. Green → auto-deploy to Dev with the repo's existing deploy workflow, report the result.
 
 ### Stage 6 — PR loop
@@ -168,8 +169,8 @@ Follow `ship` §4 for collecting threads, judging comments (accept / partial / r
 
 1. Collect unreplied threads and failing real checks. Put product/design questions (`ask`) to the user.
 2. Record every accepted item and real CI failure as a gap in `STATE.md` `## Verification` → write `v<N+1>` → Stage 2 review → Stage 3 hand-off with `v<N+1>` as the executor's plan.
-3. Next run, after the executor: Stage 4 verify. Then draft numbered replies (`# | Thread | Decision | Change | Draft reply`) and wait for "push".
-4. After "push": `git-commit` → push → wait for the real checks → reply once per thread via `gh` → auto-deploy to Dev → back to step 1.
+3. Next run, after the executor: Stage 4 verify. Then draft numbered replies (`# | Thread | Decision | Change | Draft reply`) and wait for "push" (push gate: `git-commit` §3; replies stay gated).
+4. After the push gate opens: `git-commit` → push → wait for the real checks → reply once per thread via `gh` → auto-deploy to Dev → back to step 1.
 5. Never auto-resolve threads. Stop when no unreplied threads remain and `reviewDecision` is `APPROVED`. Pause on design forks or after ~3 failed fix → CI rounds.
 
 ## Related skills (if installed)

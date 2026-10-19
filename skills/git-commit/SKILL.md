@@ -50,9 +50,15 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 Interactive sessions: commit only when the human explicitly asks; "push" means commit then push. Until then, leave changes in the working tree.
 
-Auto mode (dispatched runs: Hermes direct rule/config edits, OMP executing a delegated task): checkpoint commits are allowed. Pushing still waits for the explicit human "push"; at push time all not-yet-pushed commits squash into one (§4), so the branch never accumulates garbage commits.
+Auto mode (dispatched runs: Hermes direct rule/config edits, OMP executing a delegated task): checkpoint commits are allowed. Commit mode is determined by invocation: headless flags (`-p`, `--auto-approve`, `--approval-mode=yolo`) = `auto`; interactive TTY without them = human session. Misclassification is low-stakes: worst case is extra local commits, squashed at push.
 
-Mode is determined by invocation, never by guessing who typed: headless flags (`-p`, `--auto-approve`, `--approval-mode=yolo`) = `auto`; interactive TTY without them = human session. A dispatch prompt carrying the shared STATE.md path confirms delegation. Misclassification is low-stakes: worst case is extra local commits, squashed at push.
+Push is a different gate and reads the control signal, never the tool flags:
+- Read `HERMES_CONTROL` (unset = `interactive`). `--auto-approve` / `--approval-mode=yolo` never authorize a push.
+- `unattended-auto`: push is authorized — the agent holding push authority pushes after verify, with no human "push".
+- `interactive` / `human`: pushing waits for the explicit human "push".
+- Cross-check the STATE.md header `control:`; it must match. Disagreement, or no positive `unattended-auto` evidence → treat as `interactive` (conservative).
+- Every push first squashes all not-yet-pushed work into one commit (§4), so the branch never accumulates garbage commits.
+- Merge authority (§5) is never lifted by the control signal.
 
 ## 4. Squash on push
 

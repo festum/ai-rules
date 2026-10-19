@@ -12,7 +12,7 @@ Package work into a pull request that's easy to review and merge.
 
 ### 1. Prepare the Branch
 
-Sync the base branch, commit, and squash per `git-commit` (merge, not rebase; push only after the human says "push").
+Sync the base branch, commit, and squash per `git-commit` (merge, not rebase; push gate: `git-commit` §3).
 
 ```bash
 # Check what will be in the PR

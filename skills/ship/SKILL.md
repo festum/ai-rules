@@ -2,7 +2,7 @@
 name: ship
 description: Inspect, design, and execute a Jira ticket, open the PR, then handle review comments, CI and Dev deploy until approved; ticketless PRs (dependabot, infra) run the same flow from step 4
 user-invocable: true
-allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-commit
+allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-commit, omp
 ---
 
 Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to complete the task design, implementation, PR creation and review fixes. Ticketless PRs (dependabot, infra) start at step 4 and skip every Jira step.
@@ -25,7 +25,7 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 ## Workflow
 
 ### 1. Prepare and branch
-- Read or create the shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite an existing `Scope & constraints`. Fill `repos:` on creation; a ticketless task names the branch after the T- key.
+- Read or create the shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite an existing `Scope & constraints`. Fill `repos:` on creation; a ticketless task names the branch after the T- key. Name the task's omp session after the key; record it in `## Sessions` as `<name> (<id>) (<cwd>)` when the session starts (resume by id; see the `omp` skill).
 - Reload the Jira ticket and fill any missing spec.
 - Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
 - Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
@@ -46,7 +46,7 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 - At stage end update STATE.md: `## Status` and `## Verification` (one line each) and append one line to `log.md`.
 
 ### 3. Human confirmation, push and PR creation
-- Hand the results and state (three lines: Done / Not done / Next) to the human for final confirmation. Never push before the human explicitly says "push"; before that, commits follow the `git-commit` mode rule (checkpoints allowed in auto mode).
+- Hand the results and state (three lines: Done / Not done / Next) to the human for final confirmation. Never push before the human explicitly says "push" (push gate: `git-commit` §3); before that, commits follow the `git-commit` mode rule (checkpoints allowed in auto mode).
 - After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, re-evaluate base code twice (re-evaluation; re-run CLI verification when anything changed), then squash unpushed work into one commit.
 - Create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
 - After the PR exists: put the URL in STATE.md `## Sessions` and update `## Status`.
@@ -86,7 +86,7 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
   1. Rescan unresolved threads with `gh`; confirm every expected fix is handled with nothing missed.
   2. List the numbered table `# | Thread | Decision | Local change | Draft reply` plus this round's CI/conflict fix summary.
   3. Report state in three lines: Done / Not done / Next.
-  4. Before the human approves the replies and says "push": no commit, no push, no comment.
+  4. Before the human approves the replies and says "push": no commit, no push, no comment. The push gate is `git-commit` §3; replies and comments still wait for the human.
 - After approval:
   1. Per `git-commit`, commit (stage only this round's changes) and push.
   2. Wait only for real CI checks (poll `statusCheckRollup` or a named check). Never `gh pr checks --watch`: it hangs on approval-gate jobs. A real check failure goes back to local fix and re-ask.

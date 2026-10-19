@@ -21,6 +21,8 @@ Hand work to the local `omp` CLI ([can1357/oh-my-pi](https://github.com/can1357/
 
 Multi-round verify = continue the same omp session (`-c` / `-r`), not an outer N-round shell.
 
+`--auto-approve` / `--approval-mode=yolo` only govern OMP's internal tool approval; they are not the control signal (`HERMES_CONTROL`) and never authorize a push (see `git-commit` §3).
+
 Default unattended base:
 
 ```bash
@@ -32,7 +34,8 @@ Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp`
 ## Shared task state
 
 - Before dispatch: resolve the key (ticket ID → current branch → aliases → STATE.md worktree match), read or create `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (fill `repos:`; task without a ticket: create the branch named after the key), and put the state folder path into the prompt.
-- After every round: write the omp session id to `## Sessions`, the round verdict to `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`), and append one line to `log.md`.
+- One session per task, named after the key. Before dispatch, read `## Sessions` for this task's session name and id. An id is present → continue that session (`omp -p -r <id> …`), never start a fresh one. No id → run the base command, then record the new session as `<name> (<id>) (<cwd>)` in `## Sessions`, `<name>` = the task key. Reset to a new session only deliberately, with the reason in `log.md`; if `-r <id>` fails (session gone), start fresh and record the new session.
+- After every round: write the omp session (`<name> (<id>) (<cwd>)`) to `## Sessions`, the round verdict to `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`), and append one line to `log.md`.
 
 ## Liveness & failure detection
 
@@ -139,6 +142,8 @@ Rule: report ISSUES when you fixed anything this round (list what you fixed), ev
 omp -p -c --auto-approve --approval-mode=yolo --advisor "follow-up: …"
 omp -p -r <session-id> --auto-approve --approval-mode=yolo --advisor "follow-up: …"
 ```
+
+`-c` continues the current session (a verify loop). `-r <id>` resumes a specific session by id — use it to continue a task's session across dispatches.
 
 ## Done
 

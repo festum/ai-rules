@@ -6,21 +6,23 @@ When rules conflict, safety and explicit human instructions take priority, then 
 
 ## 1. Execution Authority and Ask Boundaries
 
-- Default YOLO: implement in-scope work, local debugging, refactoring convergence, and reasonable defaults directly, without a menu prompt. Refactoring is limited to the current task's scope; no incidental refactoring.
+- Default YOLO: implement in-scope work, local debugging, refactoring convergence, and reasonable defaults directly, without a menu prompt. Refactoring is limited to the current task's scope; no incidental refactoring. Bias to act, not to offer: an in-scope fix, cleanup, or follow-up you judge correct gets a quick sanity check and is done in the same pass — never end a turn with an offer for work you could have just done (offers are only for the ask boundary, out-of-scope items, or a genuine fork needing a human decision).
+- Extend before adding: read the existing docs and structure first, then check whether an existing item (bullet, section, rule, file) already covers the ground; extend that instead of adding a new one. Add a new item only when nothing existing fits.
 - Mandatory ask boundary (Hard Ask Boundary): pause and confirm with a human only in these cases:
-  1. Irreversible or outbound actions: push, creating or merging PRs, deleting others' branches or remote work, publishing externally.
+  1. Irreversible or outbound actions: push (except under the control signal `unattended-auto`, below), creating or merging PRs, deleting others' branches or remote work, publishing externally.
   2. Creating or modifying a Data Model / DB Schema entity.
   3. A high-cost, mutually exclusive architecture fork (spanning multiple services, or requiring a large rewrite, with mutually exclusive alternatives).
   4. Writing to an external service (MCP writes are covered in §3).
 - Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve.
 - Headless runs (`-p` / `--approval-mode=yolo`) have no interactive prompt. On an ask boundary, stop and emit `BLOCKED: <reason>` plus the authorization needed, and hand off to the upper layer or a human.
 - No Hermes: the default YOLO does not apply, and the ask boundary above applies to every action rather than only the four listed cases. Plan before executing; ask questions via a selectable menu.
+- Control signal: the controller declares itself with env var `HERMES_CONTROL` (`unattended-auto` | `interactive` | `human`; unset = interactive). `--auto-approve` / `--approval-mode=yolo` are not the control signal. Only `unattended-auto` lifts the push gate (case 1) for the controller; merge and every other boundary stay gated.
 - Plan critique: while planning, interrogate the plan each round: correct vs requirement? anything missing? contradiction or redundancy? simpler? Fix material findings, ignore style nitpicks, re-run; exit after two consecutive zero-finding rounds. Cap 5 rounds: no convergence = major problem (contradictory task or wrong approach): re-check the premise, surface the unresolved contradiction and open questions for human decision; never present a non-converged plan as ready.
 
 ## 2. Git Conventions and Base-Branch Sync
 
 - Follow the `git-commit` skill for commit messages, merging the base branch (conflicts in favor of this branch, then re-check the base branch for reusable modules or spec changes), squash on push, and safe stashing.
-- Commit boundary: interactive sessions wait for the human's instruction before committing; auto mode (dispatched runs, e.g. Hermes→OMP) may commit checkpoints. Push waits for an explicit human "push", and every push first squashes all not-yet-pushed work (commits plus uncommitted changes) into one commit (`git-commit` skill).
+- Commit boundary: interactive sessions wait for the human's instruction before committing; auto mode (dispatched runs, e.g. Hermes→OMP) may commit checkpoints. Push waits for an explicit human "push" (see §1), and every push first squashes all not-yet-pushed work (commits plus uncommitted changes) into one commit (`git-commit` skill).
 
 ## 3. Skill Routing and External-Service Control
 
@@ -33,6 +35,7 @@ Below: what to invoke. If a skill is unavailable or fails, stop and report; neve
 
 ## 4. Surgical Code Maintenance (Minimal Diff Control)
 
+- Reuse first: before writing code, search for an existing function / class / method / helper that already does the job and use it. Add new code only when nothing existing fits. When you must add, extend or inherit rather than duplicate. No redundant or duplicated code.
 - Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. Producer repo inaccessible -> stop and report (no guessing from internal constant names).
 - Raw-payload HTTP testing: for external communication, do not test only with client or interface mocks. Use an HTTP-level mock (e.g. WireMock, MSW, MockWebServer) with real raw JSON response bodies to validate deserialization.
 - Zero speculative code: do not add unrequested features, placeholder interfaces, kitchen-sink options, or unnecessary Log/Metrics/Tracing abstraction layers.
@@ -41,13 +44,15 @@ Below: what to invoke. If a skill is unavailable or fails, stop and report; neve
 
 ## 5. Pre-Completion Exit Criteria
 
-Before final confirmation, review the git diff (staged and unstaged) and confirm all three checks:
+Before final confirmation, review the git diff (staged and unstaged) and the reply you will send; confirm all four checks:
 1. No noise: no debug prints, temporary logs, unrelated formatting, or unused imports.
 2. Defensive: null/empty checks, network and exception handling, and boundary conditions are all present.
 3. Consistency: the logic matches the Truth Table and the Jira or task spec exactly, and the project's lint and test commands pass in full.
+4. No restatement (reply): the reply repeats nothing already covered — the question, existing docs or code, or an earlier part of the reply; it adds information. Delete any restating line before sending.
 
 Reporting contract: `CLEAN` / `ISSUES: <list>` is a machine verdict, not a chat signature.
 - Record: every verification round writes `- <UTC> <command or check> → CLEAN|ISSUES: <list>` to `STATE.md` `## Verification`.
+- Self-check trace: record the pre-completion self-check (#1-4, incl. no restatement) as one `## Verification` line, `- <UTC> pre-completion self-check → CLEAN` (skip if the task has no STATE.md).
 - Machine outputs: verify loop rounds (omp `-c`, only when you run that loop) still end with exactly one line `CLEAN` or `ISSUES: <list>` for the parser.
 - Chat replies to a human: lead with the verdict in prose; append `ISSUES: <list>` only when something failed; no trailing `CLEAN`.
 - When delivering results or a PR: three lines Done / Not done / Next, verdict first in prose.
@@ -97,13 +102,14 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 ### 8.3 Timing
 
 - Before starting work on a task: read `STATE.md`, then check it against git, PR, and Jira.
+- One omp session per task, named after the key: record it in `## Sessions` as `<name> (<session id>) (<cwd>)`; resume by the id.
 - Before ending each round: update `STATE.md` and append one line to `log.md`.
 - Interrupted mid-task: at least write Done / Not done / Next once.
 
 ### 8.4 Who writes which section
 
 - `## Scope & constraints`: Hermes or a human only.
-- Executors may change only `## Status`, `## Verification`, `## Gates`, `## Sessions`, and the header lines status, updated, by.
+- Executors may change only `## Status`, `## Verification`, `## Gates`, `## Sessions`, and the header lines status, updated, by; `control` is controller-owned and never executor-changed.
 - Every write updates `updated` and `by`.
 - STATE.md disagrees with git, PR, or Jira: the external system wins. Correct STATE.md and append a `reconcile` line to `log.md`.
 
@@ -119,6 +125,7 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 key: <key> | aliases: <old IDs or none> | ticket: <URL or none>
 repos: <repo>, <repo>
 status: <prepared|planned|reviewed|handed-off|in-progress|verified|delivered|pr-loop|blocked|done>
+control: <unattended-auto|interactive|human>
 updated: <UTC> | by: <hermes|omp|claude|cursor|opencode|human>
 
 ## Scope & constraints (Hermes/human only)
@@ -132,7 +139,7 @@ Next: …
 - <UTC> <command or check> → CLEAN|ISSUES: …
 ## Gates (pending human decisions; BLOCKED reasons)
 ## Sessions
-- omp: <session id> (<cwd>) | claude: <session id> | pr: <URL>
+- omp: <name> (<session id>) (<cwd>) | claude: <session id> | pr: <URL>
 ## Plan
 current: plan-v<N>.md (delegate only)
 ````
