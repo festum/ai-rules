@@ -1,19 +1,41 @@
 # Execution-Layer Rules
 
-Shared code and engineering rules for every coding agent. A few bullets call out `omp` (a headless executor CLI) or the Hermes layer; on setups that do not have those tools these bullets are no-ops. Language settings and read-only system protection are owned by the Hermes system layer and are not repeated here; see §7 for fallbacks when Hermes is absent.
+Shared code and engineering rules for every coding agent. A few bullets call out `omp` (a headless executor CLI) or the Hermes layer; on setups that do not have those tools these bullets are no-ops. Language settings and read-only system protection are owned by the Hermes system layer and are not restated outside §7, which carries the no-Hermes fallbacks.
 
 When rules conflict, safety and explicit human instructions take priority, then this document.
+
+Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it as a second file and apply it on top of this document; it wins on conflict. It is never merged into this file.
 
 ## 1. Execution Authority and Ask Boundaries
 
 - Default YOLO: implement in-scope work, local debugging, refactoring convergence, and reasonable defaults directly, without a menu prompt. Refactoring is limited to the current task's scope; no incidental refactoring. Bias to act, not to offer: an in-scope fix, cleanup, or follow-up you judge correct gets a quick sanity check and is done in the same pass — never end a turn with an offer for work you could have just done (offers are only for the ask boundary, out-of-scope items, or a genuine fork needing a human decision).
-- Extend before adding: read the existing docs and structure first, then check whether an existing item (bullet, section, rule, file) already covers the ground; extend that instead of adding a new one. Add a new item only when nothing existing fits.
+- Investigate once, then implement: one investigation per problem, not one per turn. Record the root cause and the command that proves it in STATE.md `## Findings` (when the task has a state folder), then implement. Investigate again only when (a) a genuinely new symptom appears, or (b) the recorded cause is falsified by a failing check, or by the same symptom recurring after a fix landed. Otherwise implement from the recorded cause. Having no cause yet is not a reason to keep investigating: stop per §6 with the missing required information.
+- Plan critique is not investigation: the plan-critique loop in this section iterates the plan text (no new evidence) and must not re-open a diagnosed root cause. §10 "Challenged claims get new evidence" is trigger (b) above: a challenge that falsifies the cause re-opens investigation, a challenge that does not, does not.
+- Turn outcome: every turn ends in exactly one of — (1) a code/config change plus the verify output that proves it, (2) a root cause recorded in STATE.md `## Findings`, (3) a verify round that ends CLEAN with no code change (already verified, nothing to change), (4) `BLOCKED: <missing required information>` per §6. "Still investigating", "need more time", "let me check a few more things" are not outcomes: a turn that ends without one of the four is a failed turn and the next turn must end in one of them.
+- Extend before adding: read the existing docs and structure first, then check whether an existing item (bullet, section, rule, file) already covers the ground; extend that instead of adding a new one. Add a new item only when nothing existing fits. A rule usually lives in several files by design (one consumer per file), so search all of them, not just the file you have open (in the rules repo: `grep -rni '<concept>' system/ skills/`). Search the concept and its synonyms, not the name you plan to introduce: a name you just coined is exactly what the existing rule does not contain.
+
+| File | Consumer | Note |
+|---|---|---|
+| `system/rules.md` | every agent (Zed, Claude, OMP, opencode) | canonical owner of most rules; editors symlink this file directly, so edits are live immediately; the overlay is read separately |
+| `system/sticky_rules.md` | OMP hard rules | linked as `~/.omp/agent/RULES.md` |
+| `system/hermes.md` | Hermes contract | linked as `~/.hermes/SOUL.md`; self-contained by design (no cross-file references), so a rule it needs is stated in full |
+| `skills/<name>/SKILL.md` | that tool's dispatch skill | where Hermes/OMP prompt templates live |
+
+Per-consumer restatement is deliberate. A second name for an existing concept is not: reuse the existing name and section, then add the new facet there. Canonical vocabulary, one name per concept:
+
+| Term | Means |
+|---|---|
+| investigation | the root-cause analysis for a problem; runs once per problem, result in STATE.md `## Findings` |
+| round | one iteration with a definite verdict: verify round (`CLEAN` / `ISSUES`), plan-critique round (zero findings / fixes) |
+| turn | one agent response cycle: the unit the turn outcome (§1) and the turn/cost ceiling (§9) bound |
+| gate | one of the four ask-boundary cases |
+
 - Mandatory ask boundary (Hard Ask Boundary): pause and confirm with a human only in these cases:
   1. Irreversible or outbound actions: push (except under the control signal `unattended-auto`, below), creating or merging PRs, deleting others' branches or remote work, publishing externally.
   2. Creating or modifying a Data Model / DB Schema entity.
   3. A high-cost, mutually exclusive architecture fork (spanning multiple services, or requiring a large rewrite, with mutually exclusive alternatives).
   4. Writing to an external service (MCP writes are covered in §3).
-- Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve.
+- Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve. This covers a missing external fact that would change the outcome — scope, contract, safety, an unavailable producer repo. Uncertainty about the approach is not a missing fact: for in-scope, reversible work, resolve it inside the run (re-plan, raise thinking, take the advisor/plan model's answer), record the decision in one line, then implement. The four ask-boundary cases above are the exhaustive list of actions that need human authorization. A missing external fact is a blocker, not a gate: stop per §6 and report.
 - Headless runs (`-p` / `--approval-mode=yolo`) have no interactive prompt. On an ask boundary, stop and emit `BLOCKED: <reason>` plus the authorization needed, and hand off to the upper layer or a human.
 - No Hermes: the default YOLO does not apply, and the ask boundary above applies to every action rather than only the four listed cases. Plan before executing; ask questions via a selectable menu.
 - Control signal: the controller declares itself with env var `HERMES_CONTROL` (`unattended-auto` | `interactive` | `human`; unset = interactive). `--auto-approve` / `--approval-mode=yolo` are not the control signal. Only `unattended-auto` lifts the push gate (case 1) for the controller; merge and every other boundary stay gated.
@@ -35,11 +57,13 @@ Below: what to invoke. If a skill is unavailable or fails, stop and report; neve
 
 ## 4. Surgical Code Maintenance (Minimal Diff Control)
 
-- Reuse first: before writing code, search for an existing function / class / method / helper that already does the job and use it. Add new code only when nothing existing fits. When you must add, extend or inherit rather than duplicate. No redundant or duplicated code.
-- Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. Producer repo inaccessible -> stop and report (no guessing from internal constant names).
+- Reuse first: before writing code, search for an existing function / class / method / helper that already does the job and use it. Add new code only when nothing existing fits. When you must add, extend or inherit rather than duplicate.
+- Contract and enum alignment: for cross-service or external APIs, check the Producer Code's serializers and annotations; never guess enums or JSON fields. Isolate Wire DTOs from Domain enums through a conversion layer. Produce a Truth Table for polymorphic fields, and include a defensive fallback for unknown enum values. Producer repo inaccessible → stop and report (no guessing from internal constant names).
 - Raw-payload HTTP testing: for external communication, do not test only with client or interface mocks. Use an HTTP-level mock (e.g. WireMock, MSW, MockWebServer) with real raw JSON response bodies to validate deserialization.
 - Zero speculative code: do not add unrequested features, placeholder interfaces, kitchen-sink options, or unnecessary Log/Metrics/Tracing abstraction layers.
+- Redundancy hygiene: the other half of "zero speculative code". When the scope you touch already holds the same rule, entry, or code twice (under different names), an obsolete version a newer one replaced, or a backup copy, merge them into the one canonical place and remove the rest; never keep both. A turn that leaves a known duplicate in the scope it edited is not finished: do it in the same pass, never offer it as a follow-up. Duplication means two statements in the same file; the deliberate per-consumer restatement across the rule layers (§1) is not duplication. Scope is what this change touched — this does not license deleting unrelated pre-existing dead code (see Minimal diff).
 - Minimal diff: do not incidentally change nearby formatting, comments, or unrelated logic. Every changed line must trace to this task's request. Clean up orphaned code only when this change invalidates it; do not delete pre-existing dead code on your own.
+- Symlink is a pointer, not user content: re-point it in place (`ln -sfn`). Never back it up, move it, or leave a `.bak` of it. Back up only a real user file.
 - No new comments in code. Put required rationale in the commit message, PR description, or direct reply instead.
 
 ## 5. Pre-Completion Exit Criteria
@@ -69,11 +93,11 @@ If you still cannot make progress, or lack required information (Producer repo, 
 ## 7. Dependency and Degradation (No-Hermes Fallback)
 
 This document assumes the Hermes system layer exists. When Hermes is absent, use these minimal substitutes for the items it covers:
-1. Language settings: converse in Traditional Chinese or English; use English for PRs, Jira, docs, and comments unless told otherwise.
+1. Language settings: converse in Traditional Chinese or English; use English for PRs, Jira, docs, and comments unless told otherwise. Rule files, skill files, contracts, and configs are English artifacts: never put a quoted user phrase or a sample in another language inside them, even as a gloss.
 2. State: shared task state per §8; the todo list is session-only.
 3. Plan control: without Hermes, use the built-in plan and todo for breakdown and tracking.
 4. Read-only system protection: without Hermes, only the current working directory or its worktree is writable; any path outside the plan is read-only.
-5. OMP liveness (only when you dispatch omp): preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` ⇒ OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
+5. OMP liveness (only when you dispatch omp): preflight `omp --version`; capture exit code + stderr (stdout may stay empty). Exit ≠ 0, empty result, or no new session file under `~/.omp/agent/sessions/` → OMP did not run; silence ≠ running. Never wait `--max-time` out on a silent dispatch. Background only when the host owns the child across turns and writes a durable record; else run foreground — never hand-roll `nohup` + poll.
 
 Execution authority is covered in §1.
 
@@ -95,7 +119,7 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 
 ### 8.2 Files
 
-- `STATE.md` — current state; may be overwritten whole.
+- `STATE.md` — current state; whole-file rewrite allowed, but who may change which section is §8.4.
 - `plan-v<N>.md` — delegate plans; add new versions only, never overwrite.
 - `log.md` — append-only, one line per event: `<UTC> <agent> <event>`.
 
@@ -103,13 +127,14 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 
 - Before starting work on a task: read `STATE.md`, then check it against git, PR, and Jira.
 - One omp session per task, named after the key: record it in `## Sessions` as `<name> (<session id>) (<cwd>)`; resume by the id.
-- Before ending each round: update `STATE.md` and append one line to `log.md`.
+- Before ending each turn: update `STATE.md` and append one line to `log.md`. When the turn found the root cause, write it to `## Findings` (cause + the command that proves it) in that same turn — that record is what stops the next turn from re-investigating.
 - Interrupted mid-task: at least write Done / Not done / Next once.
 
 ### 8.4 Who writes which section
 
 - `## Scope & constraints`: Hermes or a human only.
-- Executors may change only `## Status`, `## Verification`, `## Gates`, `## Sessions`, and the header lines status, updated, by; `control` is controller-owned and never executor-changed.
+- `## Plan`: the delegate planner. `## Repos & worktrees` and the `repos:` header: set at creation, by Hermes or the agent that creates the worktree.
+- Executors may change only `## Status`, `## Verification`, `## Findings`, `## Gates`, `## Sessions`, and the header lines status, updated, by; `control` is controller-owned and never executor-changed.
 - Every write updates `updated` and `by`.
 - STATE.md disagrees with git, PR, or Jira: the external system wins. Correct STATE.md and append a `reconcile` line to `log.md`.
 
@@ -128,21 +153,25 @@ status: <prepared|planned|reviewed|handed-off|in-progress|verified|delivered|pr-
 control: <unattended-auto|interactive|human>
 updated: <UTC> | by: <hermes|omp|claude|cursor|opencode|human>
 
-## Scope & constraints (Hermes/human only)
+## Scope & constraints
 ## Repos & worktrees
 - <repo> | branch <branch> | worktree <path> | base <branch>
 ## Status
 Done: …
 Not done: …
 Next: …
+## Findings
+- cause: <root cause> | evidence: <command that proves it> | at: <UTC>
 ## Verification
 - <UTC> <command or check> → CLEAN|ISSUES: …
-## Gates (pending human decisions; BLOCKED reasons)
+## Gates
 ## Sessions
 - omp: <name> (<session id>) (<cwd>) | claude: <session id> | pr: <URL>
 ## Plan
 current: plan-v<N>.md (delegate only)
 ````
+
+Headings are literal: copy them without annotation text. `## Gates` holds pending human decisions and BLOCKED reasons (with the authorization needed); who writes each section is in §8.4.
 
 Find tasks touching a repo: `grep -l '^repos:.*\b<repo>\b' <state dir>/*/STATE.md`.
 
@@ -153,10 +182,10 @@ Interface contract for every tool call. Source: Yang et al., SWE-agent (arXiv:24
 - One command per turn: one primary tool call (a tight read/edit batch is still one action); narration minimal. Prefer fixing by config/data over source edits.
 - Line-number windows, no continuous scroll: locate first with grep (line numbers), then read one bounded window (`sed -n 'A,Bp'`, ≤100 lines); never consecutive scroll of a whole file.
 - Bounded output: any command output truncates at 100 lines (`head -100` or editor tool limit); zero output means explicit success line, never silence.
-- Lint before edit: run the file's lint/format gate before an edit to it; gate fail → abort the edit, address the gate fail first, do not push through; no gate defined for that file type → say so once and proceed.
-- Edit loop brake: after 3 turns editing the same file without passing the gate, stop and emit `BLOCKED: aci edit-loop`.
-- Search breadth cap: one listing round lists only file names, hard cap 50 hits (`find`, not `ls -R`); per-file content read falls to the line window rule above.
-- Turn / cost ceiling: for multi-round tasks, set max turns and max cost up front; exceeded → emit `BLOCKED: aci budget`.
+- Lint before edit: run the file's lint/format gate before an edit to it; lint-gate fail → abort the edit, address the failure first, do not push through; no lint gate defined for that file type → say so once and proceed.
+- Edit loop brake: after 3 turns editing the same file without passing the lint gate, stop and emit `BLOCKED: aci edit-loop`.
+- Search breadth cap: one listing command lists only file names, hard cap 50 hits (`find`, not `ls -R`); per-file content read falls to the line window rule above.
+- Turn / cost ceiling: for multi-turn tasks, set max turns and max cost up front; exceeded → emit `BLOCKED: aci budget`.
 
 ## 10. Evidence Discipline
 

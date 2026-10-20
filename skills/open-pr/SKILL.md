@@ -43,6 +43,8 @@ Examples:
 
 If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in the template's required fields (e.g. feature owner, ticket ID) from the repo's `AGENTS.md`/`CLAUDE.md` or the branch name; ask if still unknown.
 
+Some templates carry an approval or sign-off field (e.g. "Functional tester", "tested by", "reviewed by"). Leave it empty when opening the PR — it records who verified the change, so it belongs to the approver, not the author. Once a reviewer approves, anyone may fill it in with that approver's username; do not wait for the approver to do it, and do not fill it before an approval exists.
+
 ### 4. Self-Review
 
 Before requesting review:
@@ -86,4 +88,4 @@ Personal convention: use the `gh` CLI exclusively for all PR interactions (creat
 
 ## CI Notes (personal)
 
-- A failing approval-gate job (change-record or sign-off check) means the PR isn't approved yet — do not treat it as a CI failure.
+- A failing approval-gate job (change-record or sign-off check) means the PR has no approval yet, or its approval field is still empty — do not treat it as a CI failure.

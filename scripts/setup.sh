@@ -69,9 +69,9 @@ REPO_ROOT="$(realpath "$SCRIPT_DIR/..")"
 RULES="$REPO_ROOT/system/rules.md"
 STICKY_RULES="$REPO_ROOT/system/sticky_rules.md"
 # Optional private overlay kept outside the repo (like ~/.rc_local).
-# When present, rules.md + overlay are merged and every editor links to the merged file.
+# Editors symlink system/rules.md directly; the overlay is never merged. The shared
+# rules tell every agent to read it as a second file (see the top of system/rules.md).
 LOCAL_RULES="${AI_RULES_LOCAL:-$HOME/.ai-rules.local.md}"
-MERGED_RULES="$HOME/.cache/ai-rules/rules.md"
 HERMES_CONTRACT="$REPO_ROOT/system/hermes.md"
 SKILLS_DIR="$REPO_ROOT/skills"
 CC_SKILLS_GOLANG_REPO="https://github.com/samber/cc-skills-golang"
@@ -160,7 +160,7 @@ update_submodules() {
     fi
 }
 
-# Function to create symlink (source -> target), backing up anything unexpected
+# Function to create symlink (source -> target)
 create_symlink() {
     local editor="$1"
     local source="$2"
@@ -179,17 +179,17 @@ create_symlink() {
             if [ "$current_target" = "$source" ]; then
                 print_status "$editor already linked"
                 return 0
-            else
-                print_warning "Backing up existing $editor: $target -> $target.bak"
-                mv "$target" "$target.bak"
             fi
+            # A symlink is a pointer, not user content: re-point it in place.
+            # Never back it up, never move it, never leave a .bak of it.
+            print_status "$editor relinked: $target -> $source"
         else
             print_warning "Backing up existing $editor: $target -> $target.bak"
             mv "$target" "$target.bak"
         fi
     fi
 
-    # Create symlink
+    # Create symlink (ln -sfn replaces an existing link in place)
     ln -sfn "$source" "$target"
     print_status "$editor linked"
 }
@@ -317,15 +317,13 @@ link_skills_into() {
 setup_rules() {
     echo -e "${BLUE}📋 Setting up editor rules from system/rules.md...${NC}"
 
-    # Merge the private overlay if present; otherwise link system/rules.md directly
-    if [ -f "$LOCAL_RULES" ]; then
-        mkdir -p "$(dirname "$MERGED_RULES")"
-        { cat "$RULES"; printf '\n\n'; cat "$LOCAL_RULES"; } > "$MERGED_RULES"
-        print_status "Merged $LOCAL_RULES into $MERGED_RULES"
-        RULES="$MERGED_RULES"
+    # Drop the stale merged copy from the old merge design so nothing still points at it.
+    if [ -e "$HOME/.cache/ai-rules/rules.md" ] || [ -L "$HOME/.cache/ai-rules/rules.md" ]; then
+        rm -f "$HOME/.cache/ai-rules/rules.md"
+        print_status "Removed stale merged copy: $HOME/.cache/ai-rules/rules.md"
     fi
 
-    # Source of truth: system/rules.md → each editor's native rules path
+    # Source of truth: system/rules.md → each editor's native rules path (direct symlink)
     create_symlink "cursor" "$RULES" "$HOME/.cursor/memories/global_rules.md"
     create_symlink "claude" "$RULES" "$HOME/.claude/CLAUDE.md"
     create_symlink "codex" "$RULES" "$HOME/.codex/memories/global_rules.md"
@@ -363,10 +361,9 @@ setup_rules() {
     echo "  ✅ Hermes: ~/.hermes/SOUL.md <- system/hermes.md"
     echo ""
     echo -e "${BLUE}🔄 To update rules:${NC}"
-    echo "  Edit: $RULES"
+    echo "  Edit: $RULES (live immediately; editors symlink it)"
     echo "  OMP sticky: $STICKY_RULES"
-    echo "  Private overlay: $LOCAL_RULES (re-run '$0 rules' after editing it or rules.md)"
-    echo "  Without an overlay, changes are immediately available in all editors!"
+    echo "  Private overlay: $LOCAL_RULES (separate file, read in addition; no re-link needed)"
 }
 
 

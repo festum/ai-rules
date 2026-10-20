@@ -3,6 +3,8 @@
 .cursor/settings.json
 node_modules/
 .DS_Store
+__pycache__/
+*.pyc
 *.log
 .env
 .env.local

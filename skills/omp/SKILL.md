@@ -88,6 +88,8 @@ Standalone lowercase words in the prompt add per-turn behavior (exact spelling, 
 
 Shape a run without prompt text: `--model` / `--smol` / `--slow` / `--plan`, `--thinking=off…max`, `--prewalk`, `--advisor`. Persist with `omp config set` (e.g. `modelRoles`, `advisor.enabled`, `plan.enabled`, `ask.timeout`, `tools.maxTimeout`, `retry.fallbackChains`). Full schema: `omp config list --json`.
 
+Do not confuse the two model switches. `--plan-yolo` forces read-only plan mode at start, auto-approves the plan on the model's first resolve call, then implements on `--plan-yolo-into` (default the `smol` role). `--prewalk` is not a planning stage: it switches to a fast/cheap model at the first edit/write once the plan's todo list exists, so it makes implementation cheaper, not more certain. Planner and implementer can therefore be different models; the implementer must read the plan's decisions rather than re-derive them.
+
 ## Modes
 
 | Trigger | Behavior |
@@ -105,11 +107,18 @@ Turn 1…N: omp -p -c --advisor … "VERIFY prompt"
 Stop: 1 CLEAN that changed no code, N reached, or 2 consecutive stuck rounds (BLOCKED)
 ```
 
+- Investigation: one per problem, not one per turn. A turn that only investigates is a setup turn — write the root cause plus the proving command to STATE.md `## Findings`, then the next turn implements from it. Investigate again only on a new symptom or a falsified cause; with no cause yet, stop: `BLOCKED: <missing required information>`, never "investigating further". Two setup turns that re-derive the same cause → `BLOCKED: <missing required information>`.
+
 **Turn 0**
 
 ```bash
 omp -p --plan-yolo --auto-approve --approval-mode=yolo --advisor --max-time=1h \
   "TASK_XXX
+
+Root cause: <recorded cause + proving command, or: unknown — investigate once, then implement>
+State: <state dir>/STATE.md — read it first, write the root cause to ## Findings when found.
+
+End this turn with exactly one of: the code change + the verify output that proves it, a root cause in ## Findings, or BLOCKED: <missing required information> (verify turns may also end CLEAN on unchanged code). "Still investigating" is not a turn outcome. Only the four ask-boundary cases (push/PR merge, schema change, architecture fork, external write) justify stopping to ask. Approach uncertainty is not one of them: this round already runs --plan-yolo, so resolve it in the plan phase, record the decision in one line, and implement. Plan and implementation may run on different model roles (plan vs --plan-yolo-into, default @smol), so re-read the plan's decisions before writing code.
 
 Done when: lint + unit + relevant regression/integration pass; summarize what changed."
 ```
@@ -125,7 +134,8 @@ omp -p -c --auto-approve --approval-mode=yolo --advisor --max-time=30m \
 2. Re-run lint and the relevant tests yourself.
 3. Fix any real issues you find.
 4. End with exactly one line: CLEAN or ISSUES: <short list>.
-Rule: report ISSUES when you fixed anything this round (list what you fixed), even if checks now pass; report CLEAN only when this round changed no code and all checks pass."
+Rule: report ISSUES when you fixed anything this round (list what you fixed), even if checks now pass; report CLEAN only when this round changed no code and all checks pass.
+Fix from the recorded root cause in STATE.md `## Findings`. A failing check is a fix task, not a new investigation; start one only if it falsifies the recorded cause. If the fix needs an approach decision, decide it inside this round with `--thinking` raised, using the recorded cause and the plan already in session context; do not stop to ask. Only the four ask-boundary cases (push/PR merge, schema change, architecture fork, external write) justify stopping; approach-uncertainty is not a gate."
 ```
 
 - `CLEAN` (no code changed this round) → verify state proven; another `-c` round would re-run identical checks on identical state → stop.

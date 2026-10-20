@@ -20,11 +20,11 @@ Sub-commands: `rules` links rules only, `skills` refreshes skill links and exter
 - `system/` holds the rules layer: the shared rules read by every tool, a companion rules file, and one system agent's contract.
 - `skills/` holds one folder per skill.
 - The setup script is where the mapping lives. It knows which path each editor and agent reads, and it owns the skill links and the external packs (a language skill pack plus a few selected upstream skills), so the details are documented in the script rather than mirrored here.
-- A private overlay outside this repo carries personal or company rules. When it exists, the script merges it with the shared rules and links editors to the merged copy; after editing either file, run the script again.
+- A private overlay outside this repo carries personal or company rules at `~/.ai-rules.local.md`. Editors symlink `system/rules.md` directly; the overlay is never merged. The shared rules and the Hermes contract each tell their agent to read it as a second file, and it wins on conflict.
 
 ## Daily workflow
 
-Edit `system/rules.md` and every linked tool picks it up next session. Edit the overlay and re-run the script. Task state lives in a small folder per task that all agents read and update, so work survives sessions and worktrees; the convention is defined in the shared rules.
+Edit `system/rules.md` and every linked tool picks it up next session. Edit the overlay and it is picked up the same way — no re-link needed. Task state lives in a small folder per task that all agents read and update, so work survives sessions and worktrees; the convention is defined in the shared rules.
 
 ## Skills
 
