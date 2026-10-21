@@ -1,8 +1,8 @@
 ## Hermes × OMP Adapter Contract
 
 > Contract-ID: hermes-omp-adapter
-> Version: 4.7.2
-> Updated-UTC: 2026-10-20T17:30:11Z
+> Version: 4.7.3
+> Updated-UTC: 2026-10-21T14:35:27Z
 > Goal: This one make Hermes stateless trigger only. Git repo code task → dispatch OMP with the canonical command (§1.4, per the `omp` skill), verify via `-c` rounds. State = shared task state (STATE.md; todo session-only). Very strict: no blind write from assumption. Must read real source before write rule. Self-contained: no cross-file rule references.
 
 Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it as a second file after this one and apply it on top; it wins on conflict. It is never merged into this file.
@@ -51,6 +51,7 @@ Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it 
 - Plan protection, for every task: (1) check real source/tool output first, (2) interrogate the draft in thinking, (3) use plan mode (`omp --plan-yolo`, or the host agent's native plan) instead of a hand-rolled plan artifact, (4) then act. Task small also cannot skip plan.
 - Critique draft: OMP-dispatched task → scope + constraints only (never the implementation plan; OMP owns that, §1.2). Hermes-direct task → the short plan. Each round: correct vs requirement? anything missing? contradiction or redundancy? simpler? Fix material findings, ignore style nitpicks, re-run. Exit after two consecutive zero-finding rounds. Cap 5: no convergence mean big problem (task contradiction or wrong approach): re-check premise, report unresolved contradiction and open questions for human decision. No present non-converged draft as ready.
 - Task touch production/push/delete/external API/payments, plan mandatory. No excuse.
+- Overturning existing behavior: a plan change that removes, replaces, or reverses what the code already does must first trace what that behavior was for (`git blame -w -M -L <range> <file>` for the introducing commit, `git show -s --format=%B <sha>` for the reasoning, `git log -L :<func>:<file> --no-merges` for the evolution, the linked issue, the tests that pin it) and whether that history shows a defect or a deliberate design. The ticket states the intended goal and is context, not authority: a wrong ticket does not make a wrong change right. Judge the change on the merits — a change that fixes a known defect, or makes the behavior measurably better, proceeds; a deliberate and correct behavior that the change does not improve stays, or the change becomes additive, and the plan says why. Runs in the plan phase, before implementation.
 - Plan can short, but must exist. "Just run one command" not plan.
 
 ### Before-Write Research Mandate
@@ -66,7 +67,7 @@ Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it 
 Hermes enforces these inline; no cross-file rule references:
 
 - Skill routing: Jira work → `ship`, plan-only → `delegate`, PR open → `open-pr`. MCP writes only Jira + memory. Confluence: minimal HTML edit, never whole page.
-- Contract/enum alignment via producer serializers; wire DTO to domain mapper layer; Truth Table for polymorphic fields; unknown-enum fallback; raw-payload HTTP tests with real JSON bodies; reuse existing code first (function/class/method; extend or inherit, never duplicate); zero speculative code; minimal diff. Redundancy hygiene: a duplicate, redundant copy, obsolete version, or backup file in the touched scope gets merged into one canonical place and the rest removed, in the same pass; a leftover duplicate is unfinished work, not a follow-up.
+- Contract/enum alignment via producer serializers; wire DTO to domain mapper layer; Truth Table for polymorphic fields; unknown-enum fallback; raw-payload HTTP tests with real JSON bodies; reuse existing code first (function/class/method; extend or inherit, never duplicate); zero speculative code; minimal diff. Redundancy hygiene: a duplicate, redundant copy, obsolete version, or backup file in the touched scope gets merged into one canonical place and the rest removed, in the same pass; a leftover duplicate is unfinished work, not a follow-up. Overturning existing behavior needs what the old behavior was for traced (commit, message, issue, pinning tests) and judged on merit: fixing a known defect or a real improvement proceeds, otherwise keep it or make the change additive, never replace silently.
 - Tool-call interface discipline: one command per turn, line-number windows (no continuous scroll), output ≤ 100 lines (zero output = explicit success), lint before edit (fail → abort), edit-loop brake at 3 turns without progress, search lists file names cap 50, turn/cost ceiling.
 - Push gate: implement + verify first; auto mode (OMP delegated task) may checkpoint-commit; push waits for explicit human "push", lifted only under the control signal `unattended-auto` (§1.7); merge the base branch then re-evaluate, squash on push.
 
