@@ -68,12 +68,14 @@ Every push: first squash ALL not-yet-pushed work into exactly one commit (messag
 
 Merge authority belongs to Hermes only (the human when Hermes is absent). Executors (OMP, `claude`, `opencode`, the `agent` tool) never merge and never enable auto-merge: on reaching a mergeable PR, stop and emit `BLOCKED: <reason>` plus the authorization needed, and let Hermes act.
 
+- PR-free direct merge (no PR ceremony): when the project is the user's own private repo, main has no branch protection or accepts direct pushes (`gh api repos/<owner>/<repo>/branches/main/protection` returning 404 = unprotected; any other error, including 403 for missing admin rights, means treat it as protected until verified otherwise), and the last 5 commits on main show at least one direct push (`git log -n5 --pretty=%s`: subjects ending in `(#123)` or starting `Merge pull request` came from PRs, anything else is typically a direct push), skip PR creation and merge the branch straight into main and push. Not for ticketed (Jira) work — the ship skill's PR flow still applies there. This removes the ceremony only: the human's go-ahead, the Hermes-only merge authority, and the branch cleanup below all still apply.
 - Hermes merges, or enables auto-merge, only after an explicit human go-ahead. Enabling auto-merge is still that same authorization, not a shortcut past it.
 - Interactive: merge only on the human's instruction.
 - Auto mode (Hermes only): same gate. Arming is not merging: prefer `gh pr merge <pr> --auto --squash`, then `gh pr review <pr> --approve`, so the merge fires on its own once the repo's required checks and reviews pass. Never run a manual merge (`gh pr merge <pr> --squash`, the web UI) that lands the PR immediately and skips that gate.
 - Preconditions before arming: real CI checks green (approval-gate jobs are exempt, they stay red until a human signs off), no unresolved review threads, `reviewDecision` = `APPROVED`.
 - Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. The merge still needs the human's go-ahead in either case, so never work around it.
 - When the merge lands on GitHub, prefer **Squash and merge** so the PR lands as one commit with a message per §1. Use a merge commit only when the human explicitly asks.
+- Branch and worktree cleanup rides with the merge, not a separate question: once the merge lands, local merge into the base included, delete the local branch, the remote branch, and the task's worktree in the same pass (`git branch -d <name>`, `git push origin --delete <name>`, `git worktree rm <path>` then `git worktree prune`), without asking.
 
 ## 6. Setting work aside
 

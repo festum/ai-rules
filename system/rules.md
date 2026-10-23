@@ -35,7 +35,7 @@ Per-consumer restatement is deliberate. A second name for an existing concept is
   2. Creating or modifying a Data Model / DB Schema entity.
   3. A high-cost, mutually exclusive architecture fork (spanning multiple services, or requiring a large rewrite, with mutually exclusive alternatives).
   4. Writing to an external service (MCP writes are covered in §3).
-- Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve. This covers a missing external fact that would change the outcome — scope, contract, safety, an unavailable producer repo. Uncertainty about the approach is not a missing fact: for in-scope, reversible work, resolve it inside the run (re-plan, raise thinking, take the advisor/plan model's answer), record the decision in one line, then implement. The four ask-boundary cases above are the exhaustive list of actions that need human authorization. A missing external fact is a blocker, not a gate: stop per §6 and report.
+- Outside those four cases, when information is missing, the spec is contradictory, or the work cannot be verified: take the conservative default. Stop and report; do not self-approve. This covers a missing external fact that would change the outcome — scope, contract, safety, an unavailable producer repo. Uncertainty about the approach is not a missing fact: for in-scope, reversible work, resolve it inside the run (re-plan, raise thinking, take the advisor/plan model's answer), record the decision in one line in `STATE.md` `## Decisions locked`, then implement. The four ask-boundary cases above are the exhaustive list of actions that need human authorization. A missing external fact is a blocker, not a gate: stop per §6 and report.
 - Headless runs (`-p` / `--approval-mode=yolo`) have no interactive prompt. On an ask boundary, stop and emit `BLOCKED: <reason>` plus the authorization needed, and hand off to the upper layer or a human.
 - No Hermes: the default YOLO does not apply, and the ask boundary above applies to every action rather than only the four listed cases. Plan before executing; ask questions via a selectable menu.
 - Control signal: the controller declares itself with env var `HERMES_CONTROL` (`unattended-auto` | `interactive` | `human`; unset = interactive). `--auto-approve` / `--approval-mode=yolo` are not the control signal. Only `unattended-auto` lifts the push gate (case 1) for the controller; merge and every other boundary stay gated.
@@ -43,8 +43,9 @@ Per-consumer restatement is deliberate. A second name for an existing concept is
 
 ## 2. Git Conventions and Base-Branch Sync
 
-- Follow the `git-commit` skill for commit messages, merging the base branch (conflicts in favor of this branch, then re-check the base branch for reusable modules or spec changes), squash on push, and safe stashing.
+- Follow the `git-commit` skill for commit messages, merging the base branch (conflicts in favor of this branch, then re-check the base branch for reusable modules or spec changes), squash on push, and safe stashing. A PR-free direct merge is allowed for unprotected self-owned repos; the conditions and the unchanged authorization gate are in the git-commit skill.
 - Commit boundary: interactive sessions wait for the human's instruction before committing; auto mode (dispatched runs, e.g. Hermes→OMP) may commit checkpoints. Push waits for an explicit human "push" (see §1), and every push first squashes all not-yet-pushed work (commits plus uncommitted changes) into one commit (`git-commit` skill).
+- Branch and worktree cleanup is immediate and unasked: once a branch has merged into its base, or the work is concluded, delete the local branch, the remote branch, and the task's worktree in the same pass (`git branch -d <name>`, `git push origin --delete <name>`, `git worktree rm <path>` followed by `git worktree prune`); never offer it as a follow-up.
 
 ## 3. Skill Routing and External-Service Control
 
@@ -129,13 +130,14 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 - Before starting work on a task: read `STATE.md`, then check it against git, PR, and Jira.
 - One omp session per task, named after the key: record it in `## Sessions` as `<name> (<session id>) (<cwd>)`; resume by the id.
 - Before ending each turn: update `STATE.md` and append one line to `log.md`. When the turn found the root cause, write it to `## Findings` (cause + the command that proves it) in that same turn — that record is what stops the next turn from re-investigating.
+- Trigger each block at its own moment, not at closeout: a decision resolved by plan critique or by the §1 in-run judgement goes to `## Decisions locked` (one line, with why, marked do not reopen) in the turn it lands; a trap that cost diagnosis time but is not this task's root cause goes to `## Gotchas` (symptom + guard), while the task's own root cause stays in `## Findings`; an unknown that does not block the current turn goes to `## Open questions` with a resolve-by marker. A gotcha that recurs across tasks graduates to the observation log rather than growing this file. Resolved open questions move out (into `## Decisions locked` or closed) so the blocks stay lean.
 - Interrupted mid-task: at least write Done / Not done / Next once.
 
 ### 8.4 Who writes which section
 
 - `## Scope & constraints`: Hermes or a human only.
 - `## Plan`: the delegate planner. `## Repos & worktrees` and the `repos:` header: set at creation, by Hermes or the agent that creates the worktree.
-- Executors may change only `## Status`, `## Verification`, `## Findings`, `## Gates`, `## Sessions`, and the header lines status, updated, by; `control` is controller-owned and never executor-changed.
+- Executors may change only `## Status`, `## Decisions locked`, `## Gotchas`, `## Open questions`, `## Verification`, `## Findings`, `## Gates`, `## Sessions`, and the header lines status, updated, by; `control` is controller-owned and never executor-changed.
 - Every write updates `updated` and `by`.
 - STATE.md disagrees with git, PR, or Jira: the external system wins. Correct STATE.md and append a `reconcile` line to `log.md`.
 
@@ -146,33 +148,7 @@ Finding an existing task, in order: the key, the current branch name, `aliases`,
 
 ### 8.6 STATE.md template
 
-````markdown
-# <key> - <title>
-key: <key> | aliases: <old IDs or none> | ticket: <URL or none>
-repos: <repo>, <repo>
-status: <prepared|planned|reviewed|handed-off|in-progress|verified|delivered|pr-loop|blocked|done>
-control: <unattended-auto|interactive|human>
-updated: <UTC> | by: <hermes|omp|claude|cursor|opencode|human>
-
-## Scope & constraints
-## Repos & worktrees
-- <repo> | branch <branch> | worktree <path> | base <branch>
-## Status
-Done: …
-Not done: …
-Next: …
-## Findings
-- cause: <root cause> | evidence: <command that proves it> | at: <UTC>
-## Verification
-- <UTC> <command or check> → CLEAN|ISSUES: …
-## Gates
-## Sessions
-- omp: <name> (<session id>) (<cwd>) | claude: <session id> | pr: <URL>
-## Plan
-current: plan-v<N>.md (delegate only)
-````
-
-Headings are literal: copy them without annotation text. `## Gates` holds pending human decisions and BLOCKED reasons (with the authorization needed); who writes each section is in §8.4.
+Creating STATE.md: copy `~/.ai-rules/STATE-template.md` verbatim into `<state dir>/<key>/STATE.md`. The link is created by `scripts/setup.sh` from the source of truth `system/templates/STATE.md`. If the link does not resolve, locate the repo through the rules file itself: `readlink` on the rules path you loaded rules.md from reveals `system/`'s parent directory; read `system/templates/STATE.md` beside it. Headings are literal: copy them without annotation text. `## Gates` holds pending human decisions and BLOCKED reasons (with the authorization needed); who writes each section is §8.4.
 
 Find tasks touching a repo: `grep -l '^repos:.*\b<repo>\b' <state dir>/*/STATE.md`.
 

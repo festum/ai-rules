@@ -1,8 +1,45 @@
-# AI Rules Template
+# ai-rules
 
-A single place for the rules and skills your AI coding agents share. Every editor and agent reads its own rules file and skills folder; this repo is the one source that feeds them all, so a change here reaches every tool that links to it.
+**The rule set and skill set behind your AI coding agents: Zed, Claude Code, Cursor, Copilot, Codex, Continue, opencode, OMP, Hermes.**
 
-## Setup
+`system/rules.md` is the always-on contract every tool reads through a symlink. `skills/` holds the workflows the rules dispatch to. One setup script links both; edit here, each tool picks it up next session.
+
+Tested rules, not a template: each one replaces a failure seen in daily multi-agent use since 2026-01.
+
+## Layout
+
+| Path | Role |
+|---|---|
+| `system/rules.md` | Execution-Layer Rules, 10 sections, read by every coding agent |
+| `system/sticky_rules.md` | Hard rules for OMP (`~/.omp/agent/RULES.md`) |
+| `system/hermes.md` | Hermes contract (`~/.hermes/SOUL.md`), self-contained |
+| `system/templates/STATE.md` | STATE.md template, linked to `~/.ai-rules/STATE-template.md`, per rules.md §8.6 |
+| `skills/<name>/SKILL.md` | One folder per skill |
+| `scripts/setup.sh` | Links rules and skills into each tool's native paths, syncs external packs |
+| `~/.ai-rules.local.md` | Private overlay: read as a second file, never merged, wins on conflict |
+
+## Methodology
+
+| Method | Source | Lives in | Effect |
+|---|---|---|---|
+| Agent-Computer Interface discipline | SWE-agent (arXiv:2405.15793) | `rules.md` §9 | One tool call per turn, line windows instead of full-file scrolls, output capped at 100 lines, lint before edit, edit-loop brake |
+| Plan critique with a convergence exit | Self-refinement research (Self-Refine, Reflexion) | `rules.md` §1 | Critique rounds: each checks correct, complete, contradictory, simpler; two clean rounds exit, five rounds cap, no convergence goes to a human instead of executing a broken plan |
+| Cross-session task state | GSD's per-project state records, adapted | `rules.md` §8 | One `STATE.md` per task, shared by every agent, session, and worktree, so work never restarts from zero |
+
+## Validated in use
+
+Each rule below replaced a real failure:
+
+- **Claims without evidence**: every `done / pass / CLEAN` names a command run that session, silence proves nothing, unknown stays `UNVERIFIED` (§10).
+- **Re-diagnosis loops**: the root cause gets recorded once with its proving command; later turns implement from it (§1).
+- **Repetition under stress**: a tripwire in `sticky_rules.md` forces a rewrite from a clean angle.
+- **Behavior overturned on ticket say-so**: origin gets traced before any reversing change (§4).
+- **Rule bloat**: two trimming passes were needed once the file grew past readable size.
+- **Drift**: critique checks the plan, `STATE.md` findings and verification keep each turn checkable, and the rules themselves get revised on a fixed cadence (today's rules are revisions of earlier ones, not additions on top).
+
+What held: long procedures belong in skills, session memory is not state, wording decays while structure holds, one name per concept (§1).
+
+## Quick start
 
 ```bash
 git clone https://github.com/festum/ai-rules
@@ -13,22 +50,39 @@ chmod +x scripts/setup.sh
 
 One run links the rules in `system/` into each tool's native rules path and links each repo skill into each tool's skills directory. The script prints every target it creates; re-running is safe and refreshes the links.
 
-Sub-commands: `rules` links rules only, `skills` refreshes skill links and external packs, `update` is an alias for `skills`, and plain `./scripts/setup.sh` does both.
+Sub-commands: `rules` links rules only, `skills` refreshes skill links and external packs, `update` is an alias for `skills`, plain `./scripts/setup.sh` does both.
 
-## How it works
-
-- `system/` holds the rules layer: the shared rules read by every tool, a companion rules file, and one system agent's contract.
-- `skills/` holds one folder per skill.
-- The setup script is where the mapping lives. It knows which path each editor and agent reads, and it owns the skill links and the external packs (a language skill pack plus a few selected upstream skills), so the details are documented in the script rather than mirrored here.
-- A private overlay outside this repo carries personal or company rules at `~/.ai-rules.local.md`. Editors symlink `system/rules.md` directly; the overlay is never merged. The shared rules and the Hermes contract each tell their agent to read it as a second file, and it wins on conflict.
+External packs (real directories under `~/.agents/skills`, symlinked into other agents): `cc-skills-golang` via `npx skills`, a subset of `obra/superpowers` (systematic-debugging), a subset of `anthropics/skills` (doc-coauthoring, docx, pdf, skill-creator, xlsx), plus humanizer and task-observer.
 
 ## Daily workflow
 
-Edit `system/rules.md` and every linked tool picks it up next session. Edit the overlay and it is picked up the same way — no re-link needed. Task state lives in a small folder per task that all agents read and update, so work survives sessions and worktrees; the convention is defined in the shared rules.
+Edit `system/rules.md` and every linked tool picks it up next session. Edit the overlay the same way, no re-link needed. Task state lives in a folder per task that all agents read and write, per `rules.md` §8.
+
+## Setup invariants
+
+setup.sh must keep these; change the design, not as afterthought:
+
+- Path-independent: the repo can live anywhere; `REPO_ROOT` derives from the script's own location, and every link is an absolute direct symlink re-pointed on each run.
+- One-hop symlinks only: tools read the files fine through one symlink; never nest symlinks or copy the linked files.
+- Re-running `./scripts/setup.sh` re-syncs submodules and upstream skill packs (`skills`/`update` refreshes external packs, including task-observer and humanizer); rules links are idempotent. After moving the repo, re-run to re-point the links.
 
 ## Skills
 
-Edit a skill in this repo and the existing links pick it up. A new skill folder needs one run of `./scripts/setup.sh skills` to get linked; the same command reinstalls external packs.
+Edit a skill in this repo and existing links pick it up. A new skill folder needs one run of `./scripts/setup.sh skills`.
+
+| Skill | Use it for |
+|---|---|
+| `ship` | Jira ticket through PR, review comments, CI, Dev deploy |
+| `delegate` | Plan-only mode: plans a cheaper agent executes, verified, PR loop to approval |
+| `open-pr` | Review-ready pull requests with title, description, linked issues, reviewers |
+| `review-pr` | Review a teammate's PR against its Jira spec and current base branch |
+| `git-commit` | Commit, merge, push rules: Conventional Commits, base-branch sync, push gate, squash |
+| `dependabot` | Find, approve, auto-merge dependabot PRs; deploy gates and monitoring |
+| `omp` | Dispatch the `omp` headless executor with multi-round verify (Hermes/OpenClaw only) |
+| `voice` | Shape every generated or edited prose output |
+| `humanizer-ref` | Reference-register documents: CVs, API docs, specs, changelogs, READMEs |
+| `humanizer-zh` | Edit Chinese prose: cut filler, repetition, and templated phrasing while keeping facts and the author's voice |
+| `wiz` | Wiz GraphQL writes with browser session auth and Chrome CDP cookie refresh |
 
 ## Cleanup
 
