@@ -36,7 +36,7 @@ Header of every plan file:
 version: v<N> | updated: <UTC>
 ```
 
-The review round log and the verification notes live in `STATE.md` `## Verification`. A stage is done only when its artifacts exist: the plan file `plan-v<N>.md`, plus those `STATE.md` entries.
+The review round log and the verification notes live in `STATE.md` `## Verification`.
 
 ### Detecting the stage
 

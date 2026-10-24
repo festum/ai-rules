@@ -1,10 +1,10 @@
 ---
 name: humanizer-ref
-version: 1.0.0
+version: 1.0.1
 description: |
   Humanize reference-register documents — CVs / résumés, API docs, technical
   specs, changelogs, legal text, product requirements, READMEs. Applies the
-  base humanizer's LINT patterns only, skips personality injection (which
+  base humanizer's patterns without personality injection (which
   belongs to personal register), and adds overrides for CV/reference conventions
   like ATS keyword bolding, parallel-verb bullets, and subject-dropped bullets.
   Use when editing a CV or any document whose correct human voice is neutral,
@@ -26,30 +26,30 @@ Reference-register documents (CVs, API docs, technical specs, legal, changelogs)
 
 ## Process
 
-1. **Load the base humanizer skill first.** Read `~/.agents/skills/humanizer/SKILL.md` (or the equivalent path in this environment) for the pattern definitions §1-§33.
-2. **Apply LINT patterns only** — §1-§14, §19, §23-§25, §27, §30, §32-§33.
-3. **Skip PERSONALITY AND SOUL entirely.** Do not add opinions, first person, mixed feelings, tangents, or deliberate rhythmic variation. The correct human voice for reference documents *is* neutral and parallel.
+1. **Load the base humanizer skill first.** Read `~/.agents/skills/humanizer/SKILL.md` (or the equivalent path in this environment) for the pattern definitions §1-§26 (sections A-F).
+2. **Apply the base patterns §1-§26** — all are tell-removal; none inject personality.
+3. **Keep it neutral.** Do not add opinions, first person, mixed feelings, tangents, or deliberate rhythmic variation (base `### Voice`: reference text stays neutral and plain). The correct human voice for reference documents *is* neutral and parallel.
 4. **Apply the overrides below** where they conflict with the base humanizer.
 5. **Deliverable** matches the base humanizer: draft rewrite, "still-AI" audit bullets, final rewrite with 0 em/en dashes.
 
 ## Overrides for reference register
 
-### §10 Rule of three — allow factual lists
+### §6 Forced triads — allow factual lists
 Tech stacks, feature enumerations, spec bullets, and skill lists are factual and often exceed three items. Only cut forced rhetorical triples ("innovation, inspiration, and industry insights"). Keep "Kafka, gRPC, Protobuf, Docker, Kubernetes".
 
-### §11 Elegant variation — prefer parallelism over synonym cycling
+### §7 Repeated sentence openings — prefer parallelism over synonym cycling
 Reference documents *want* repeated verbs. All CV bullets starting with `Cut` / `Delivered` / `Reduced` is a feature, not repetition. Do not cycle synonyms just for variety.
 
-### §13 Passive voice — subject-dropped bullets are convention
+### §11 Passive voice and missing subjects — subject-dropped bullets are convention
 CV bullets like `Recruited from Taiwan as Principal Engineer` or `Shipped 15 payment-method APIs` drop the subject by convention. Do not rewrite to `I was recruited...`. Rewrite passive only when it hides the actor in a way that obscures meaning.
 
-### §15 Bold overuse — ATS keyword bolding is convention
-Bolding technical keywords (`*Go*`, `*AWS*`, `*20%*`) in CVs is ATS-friendly, not an AI tell. Only cut bold when it is applied mechanically to every noun or every list item header (see §16).
+### §19 Bold as decoration — ATS keyword bolding is convention
+Bolding technical keywords (`*Go*`, `*AWS*`, `*20%*`) in CVs is ATS-friendly, not an AI tell. Only cut bold when it is applied mechanically to every noun or every list item header (see §20).
 
-### §26 Hyphenated word pairs — attributive stays
+### §10 Hyphenated pairs everywhere — attributive stays
 `zero-downtime migrations`, `data-driven report`, `end-to-end tests` in CV bullets almost always sit in attributive position and should stay hyphenated. Only drop hyphens in predicate position (`the report is data driven`).
 
-### §31 Manufactured punchlines — bullet fragments are format
+### §2 One-line closers and dramatic fragments — bullet fragments are format
 Short bullets are not staccato drama. Only flag stacked short sentences within a single bullet or prose paragraph that inflate tone.
 
 ## Extra checks specific to reference register

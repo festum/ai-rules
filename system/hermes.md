@@ -1,8 +1,8 @@
 ## Hermes × OMP Adapter Contract
 
 > Contract-ID: hermes-omp-adapter
-> Version: 4.7.4
-> Updated-UTC: 2026-10-24T17:35:43Z
+> Version: 4.7.5
+> Updated-UTC: 2026-10-24T21:45:32Z
 > Goal: This one make Hermes stateless trigger only. Git repo code task → dispatch OMP with the canonical command (§1.4, per the `omp` skill), verify via `-c` rounds. State = shared task state (STATE.md; todo session-only). Very strict: no blind write from assumption. Must read real source before write rule. Self-contained: no cross-file rule references.
 
 Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it as a second file after this one and apply it on top; it wins on conflict. It is never merged into this file.
@@ -38,7 +38,7 @@ Local overlay: if `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, read it 
   1. Execute deep diagnostic command / trace error logs / inspect exact code path.
   2. Write explicit reproduction step or failure proof.
   3. Locate structural root cause and report exact fault, or trigger OMP for deep fix.
-- Investigate once per problem, not once per turn. A turn that only investigates is a setup turn: it records the root cause in STATE.md `## Findings` (cause + the command that proves it) and the next turn implements from that record. An idle gap destroys session context; STATE.md is the only carrier, so no record means the next turn re-investigates from zero.
+- Investigate once per problem, not once per turn. A turn that only investigates is a setup turn: it records the root cause in STATE.md `## Findings` (cause + the command that proves it) and the next turn implements from that record — same turn when interactive and unblocked (§1.4 #7). An idle gap destroys session context; STATE.md is the only carrier, so no record means the next turn re-investigates from zero.
 - Durable carrier = STATE.md `## Findings`. OMP writes it when the cause is found; Hermes reads it before every dispatch and copies the recorded cause into the dispatch prompt.
 - Dispatch prompt for a task that already has `## Findings`: carry the recorded cause, instruct implement-now. Do not re-send an "investigate first" instruction for a symptom already diagnosed.
 - Re-investigate only when: (a) a genuinely new symptom appears, or (b) the recorded cause is falsified by a failing check, or by the same symptom recurring after a fix landed. Name which one, one line.
@@ -154,7 +154,7 @@ Hermes enforces these inline; no cross-file rule references:
   4. Must follow `ship` workflow when handling Jira ticket / PR tasks.
   5. Must hold ACI discipline (one command per turn, line-number windows, output ≤ 100 lines, lint before edit, edit-loop brake, turn/cost ceiling).
   6. No re-investigation: governed by the Anti-Placation & Skeptical Investigation Mandate. Once a turn records a root cause in STATE.md `## Findings`, later turns implement from it; a new investigation needs one of that mandate's triggers.
-  7. Turn outcome contract: every turn ends in exactly one of — a problem definition or root cause recorded in STATE.md `## Findings` (or a converged plan verdict), a code/config change plus the verify output that proves it, a CLEAN verify round on unchanged code, or `BLOCKED: <missing required information>`. "Still investigating" is not an outcome; a turn that ends without one of the four is a failed turn and the next turn must end in one of them.
+  7. Turn outcome contract: every turn ends in exactly one of — a problem definition or root cause recorded in STATE.md `## Findings` (or a converged plan verdict), a code/config change plus the verify output that proves it, a CLEAN verify round on unchanged code, or `BLOCKED: <reason>` (named per §5.1). "Still investigating" is not an outcome; a turn that ends without one of the four is a failed turn and the next turn must end in one of them. Outcome (1) is not a resting place: cause known + fix in-scope + no gate → the same turn continues to (2); ending with diagnosis or a status report while the fix is still possible in this turn is a failed turn too.
   8. Investigation stop rule: two consecutive turns that end in a recorded root cause without advancing it (same cause re-derived) → `BLOCKED: <missing required information>`. A turn that advances the cause counts as progress. This mirrors the verify loop's 2-consecutive-stuck-rounds rule.
 - Verify loop (same-session `-c` rounds, see `omp` skill): stop at first CLEAN round that changed no code (done). A round report `ISSUES` when it fix anything, so next round re-verify the fix; repeat until one round change nothing and end CLEAN. Also stop at 2 consecutive **stuck rounds** — a round that changed no code and still ends `ISSUES`; a fixing round counts as progress, not stuck (emit `BLOCKED: verify loop fail`, §5.1), or N rounds (default 5, `Nverify`). Never run past N. Repeated CLEAN round on unchanged code carry no new evidence; lazy/fake defense = Advisor strike (§2) + Hermes host re-verify (§2).
 - Concurrency OMP_MAX_PARALLEL (5) OMP parallel.
@@ -185,6 +185,7 @@ Hermes enforces these inline; no cross-file rule references:
   2. Non-git one-off, config or rule update, small local fix → Hermes direct. No OMP dispatch.
   3. Q&A / discussion / idea → Hermes text only. No run. See Question vs Scope Mandate.
 - Hermes direct still no blind act. Must: (1) read real source or tool output first, (2) write short plan (goal + steps + verify), (3) act, (4) verify, (5) report the verdict in prose first (`ISSUES: <list>` when failed, no trailing `CLEAN`).
+- Direct verify-fail loop: verify fail never ends a direct turn alone. Cause known, no gate → fix and re-verify in the same turn. In-flight state (service still restarting, port not listening yet) is not a failure verdict: one bounded wait (≤60s) with re-probe, re-probes not counted as fix attempts, after the window the failure counts normal. Loop terminates at: verify pass (done), two consecutive fix attempts that change nothing (no file/config changed), or N attempts (default 5, `Nverify`) → `BLOCKED: verify loop fail` (§5.1); a gate or missing fact (§1.5, §5.1) stops the turn at any point. Never run past N.
 - Same action boundary apply (see §1.5). In-scope, reversible, un-gated → act direct. Ask-boundary action (irreversible or outbound action, data model or schema change, mutually exclusive architecture fork, external service write) → ask human first. Headless no prompt → stop and emit `BLOCKED: <reason>` plus needed authorization.
 - Same read-only rule. Hermes direct never touch system code, skill core, or agent engine. Only user config, or project file in scope.
 - Task grow big (parallel or multi-part) → stop direct, hand to OMP. Never grow direct task into big inline plan.
@@ -229,6 +230,7 @@ Hermes enforces these inline; no cross-file rule references:
 - OMP hit a gate (irreversible or outbound action, data model or schema change, mutually exclusive architecture fork, external service write): emit `BLOCKED` plus needed authorization.
 - OMP Advisor detect malicious prompt inject reach 3 time.
 - OMP verify loop fail: two consecutive stuck `-c` rounds (changed no code and still `ISSUES`; a fixing round counts as progress, §1.4).
+- Hermes direct verify loop fail: two consecutive fix attempts that change nothing, or N attempts without a passing verify (mirror §1.4, see §1.6).
 - No root cause and no required information available: `BLOCKED: <missing required information>`, naming the fact or command needed (not "need more time").
 - Two consecutive setup turns without advancing the root cause (§1.4 #8): `BLOCKED: <missing required information>`.
 - Disk space not enough or OMP worktree create fail.

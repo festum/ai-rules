@@ -97,7 +97,7 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
   - Reply once per thread and cover every point; answered threads never get new comments, only edits to the existing reply, unless the reviewer replied again.
   - Accept / fixed: conclusion only, usually 1-5 English words (cap 12), e.g. `Fixed.` / `Done.` / `Out of scope.`; no mechanism, no file/line/numbers, no diff restatement.
   - Reject / not applying: one-sentence conclusion; mark judgment with `IMO` / `I think`; add one reason when needed; end with `WDYT?` only when truly open (see `voice` PR review replies).
-  - Never Chinese, apology filler, commit/SHA, or repeated info. Use the `voice` skill for English replies (`voice` includes humanizer); on conflict this doc wins.
+  - Never Chinese, apology filler, commit/SHA, or repeated info. Use the `voice` skill for English replies (`voice` includes humanizer); `voice` is SSOT for reply wording, this doc keeps publish and workflow.
   - Publish only via `gh`, never MCP or the web UI; never mark threads resolved yourself.
 - Never force-push a shared PR branch; never widen PR scope. Nothing to fix and no unresolved threads: report state and keep watching until Approved (or ask the human whether to nudge the reviewer).
 - Merge the PR only on the human's explicit go-ahead, and only by whoever holds merge authority (Hermes, or the human when Hermes is absent); prefer Squash and merge (`git-commit` skill §5).

@@ -31,8 +31,11 @@ Format: `<ticket_id_if_exists> <type>: <short description>`
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
 | `docs` | Documentation only |
 | `test` | Adding or fixing tests |
-| `chore` | Build, CI, deps, or tooling |
+| `chore` | Build, tooling, deps |
 | `perf` | Performance improvement |
+| `style` | Formatting, whitespace |
+| `ci` | CI/CD pipeline changes |
+| `revert` | Reverting a previous commit |
 
 Examples:
 - `feat: add dark mode toggle to settings page`

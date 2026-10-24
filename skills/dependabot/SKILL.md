@@ -19,7 +19,7 @@ Runs one repo at a time: do steps 1-8 for the current repo, pause for the human 
 
 - `gh pr list --author app/dependabot` in the current repo. Trust the author login, never the `[dependabot]` title alone.
 - Handle them one at a time until none remain.
-- No open PRs → record it, report the verdict in prose (no trailing `CLEAN`), and go straight to the pause in step 8.
+- No open PRs → record it, report the verdict in prose, and go straight to the pause in step 8.
 
 ## 2. Discover the repo's guards and deploy flow
 
