@@ -30,14 +30,14 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 - Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
 - Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
 - Use the built-in `plan` to break the task down; track state with `todo`.
-- Branch: if none exists, run `git pull origin <base>`, then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
+- Branch: if none exists, update the base checkout with `git pull --ff-only origin <base>` without disturbing dirty work, then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
 
 ### 2. Implement and verify
-- Contract/enum alignment and raw payload tests first:
+- When external integration behavior changes, contract/enum alignment and raw payload tests come first:
   1. Verify the producer repo's serialization and enum definitions; produce the Truth Table.
   2. Build HTTP-level raw payload tests from the producer's real payload shape; write the failing test first to validate deserialization and mapping.
   3. Complete the implementation and make the test pass.
-- Full CLI verification: after implementing or fixing, run all lint and tests so the local state passes and Push leaves no CI/CD failure.
+- Verification scope: during implementation, run checks covering changed behavior and material risks; prose-only edits and routine operations do not start a test loop. Before delivery/push, satisfy the repo's required CI-equivalent lint/tests and explicit acceptance criteria. Preserve security checks and HTTP raw-payload tests for changed integrations. Reuse valid unchanged evidence; no mandatory extra clean round or duplicate host run.
 - Self code review (read `git diff`):
   1. No noise: no debug prints, debug code, unrelated formatting, or unused imports.
   2. Defensive: null/empty checks, exception handling, and boundary conditions all present.
@@ -47,7 +47,7 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 
 ### 3. Human confirmation, push and PR creation
 - Hand the results and state (three lines: Done / Not done / Next) to the human for final confirmation. Never push before the human explicitly says "push" (push gate: `git-commit` §3); before that, commits follow the `git-commit` mode rule (checkpoints allowed in auto mode).
-- After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, re-evaluate base code twice (re-evaluation; re-run CLI verification when anything changed), then squash unpushed work into one commit.
+- After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, review base changes for reusable code and spec changes; rerun only checks invalidated by that merge, then squash unpushed work into one commit.
 - Create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
 - After the PR exists: put the URL in STATE.md `## Sessions` and update `## Status`.
 
@@ -76,12 +76,12 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
   - To process: unresolved, and (the last commenter is not me, or I never replied). Answered threads with no new reviewer reply: skip.
   - Check existing `todo` and `plan`; skip finished items; build the numbered list plus Truth Table: file/line, author, ask, related code.
   - Cross-check Jira and PRD: PRD contradicting `todo` -> mark `PRD-stale`; outside Jira scope -> mark `deferred`, not in this PR.
-- Judge: classify each thread in-agent as accept / partial / reject / ask (product or design questions go to ask; do not guess). Only when the diff exceeds 400 lines, or the change touches security, payments, or external input parsing, additionally run a multi-lens review (Claude built-in `/code-review`, or read-only omp: `omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`; follow the `omp` skill for preflight and liveness). Run lenses **in parallel** (take findings only; publish nothing from them). Never use omp's default task mode (implement + multi-round verify: writes code and is very slow).
+- Judge: classify each thread in-agent as accept / partial / reject / ask (product or design questions go to ask; do not guess). Only when the diff exceeds 400 lines, or the change touches security, payments, or external input parsing, additionally run a multi-lens review (Claude built-in `/code-review`, or read-only omp: `omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`; follow the `omp` skill for preflight and liveness). Run lenses **in parallel** (take findings only; publish nothing from them). Never use omp's implementation mode for a read-only review; it permits code writes.
   - Fix over argue: apply reasonable suggestions; reject only wrong or harmful ones; never silently ignore.
 - Local fixes:
   - Fix with `edit`, reusing existing logic; on conflict merge the base branch per `git-commit` and re-evaluate.
-  - Add unit tests and raw payload HTTP tests (key paths must include a real payload shape). Fix real CI failures (lint / types / tests / build) in the same round; never weaken tests to go green.
-  - Run all lint and tests via CLI until local pass; review `git diff` (no noise, defensive, Truth Table consistency).
+  - Add tests for changed executable behavior; for changed external integrations, include raw-payload HTTP tests with representative real payload shapes. Prose-only fixes need no unrelated tests. Fix real CI failures (lint / types / tests / build) in the same round; never weaken tests to go green.
+  - Run affected checks for behavior fixes; at delivery satisfy repo-required CI-equivalent checks using valid evidence for unchanged code. Stop after two unsuccessful fixes for the same failure; no automatic extra clean round. Review `git diff` for noise, defensive handling, and contract/spec consistency.
 - Draft replies and wait for the human (hard gate):
   1. Rescan unresolved threads with `gh`; confirm every expected fix is handled with nothing missed.
   2. List the numbered table `# | Thread | Decision | Local change | Draft reply` plus this round's CI/conflict fix summary.

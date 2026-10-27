@@ -66,7 +66,7 @@ Read-only stage detection → short plan (which stage, which files this run touc
 
 1. Authority order: reviewer comments > ticket > PRD/RFC, unless timestamps prove otherwise (1.3).
 2. Contracts and enums: read the producer's serializers/annotations; never guess JSON fields or enum text. Plan a wire DTO → mapper → domain enum layer, a Truth Table for polymorphic fields, and an unknown-value fallback. Producer code inaccessible → stop and report.
-3. Raw-payload HTTP tests: every external call gets an HTTP-level mock test (WireMock, MockWebServer, MSW, …) with real raw JSON.
+3. Raw-payload HTTP tests: changed external integration behavior gets an HTTP-level mock test (WireMock, MockWebServer, MSW, …) with real raw JSON.
 4. Team conventions are mandatory (1.4).
 5. No out-of-scope work, incidental refactoring, or speculative code. Ambiguity goes to open questions, never into vague tasks.
 
@@ -109,11 +109,11 @@ For each concern the change touches (persistence, migrations, tests, DTO/mapping
 ### Stage 2 — Plan and review the plan
 
 1. Write `v<N>` to `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/plan-v<N>.md`. `N` = highest existing version + 1; never overwrite an existing version. Self-contained template: goal and acceptance criteria, sources, Inconsistency Register, conventions, repos/worktrees, contracts and Truth Tables, ordered tasks (files, tests, done-when), verification commands, open questions, out of scope, executor rules (no push, no PR; keep `HANDOFF-NOTES.md` in the worktree updated with what changed and what was verified). For every task that removes, replaces, or reverses existing behavior, add what that behavior was for (commit and message, linked issue, pinning tests), whether that history shows a defect or a deliberate design, and whether the task fixes or improves it; a deliberate and correct behavior the task does not improve → the task keeps it or makes the change additive. The ticket gives the goal, not the verdict.
-2. Dual review, **cap 5 rounds.** Run (a) and (b) **in parallel** each round:
+2. For complex or high-risk plans, use dual review, **cap 5 rounds**; straightforward plans need only a requirements/consistency review. Run (a) and (b) **in parallel** when dual review is warranted:
    - (a) omp read-only review: `omp -p --tools=read,grep,glob --advisor --max-time=15m --cwd <worktree> "<review prompt with the plan path>"`; round 2+ continues with `-c`.
    - (b) An independent Claude subagent (`agent` tool) given only the plan path and repo paths.
 
-   Stop after **one** round where both say CLEAN and the plan is unchanged during this review cycle; require **two consecutive CLEAN rounds only after a review round edited the plan** (a fix can introduce new errors). Each gap-triggered re-review (Stage 4.5, Stage 6.2) starts from this rule again.
+   Stop when material findings are resolved. After a plan edit, review the affected decisions and dependencies, not an automatic pair of clean rounds. Gap-plan reviews follow the same rule; keep the five-round ceiling, never a round quota.
    Re-verify each finding, fix the plan, append the round to `STATE.md` `## Verification`, and end the round with `CLEAN` or `ISSUES`.
 3. Check the final plan yourself against the ticket's acceptance criteria, 1.3 verdicts, and 1.4 conventions. Record the verdict in `STATE.md` `## Verification`; lead the report with it in prose.
 
@@ -136,7 +136,7 @@ Run one executor inside the worktree:
 When it finishes, come back and run: /delegate
 ```
 
-- After the first turn, keep the executor honest with the `omp` skill's `-c` verify loop.
+- Inspect executor changes and concrete check evidence. Continue the same session only for unresolved required work/checks; do not start a verify loop merely because the first turn ended.
 - For gap rounds the executor runs against the `v<N+1>` gap plan.
 - omp liveness rules are in the `omp` skill. Executors must not push, must not merge PRs, and must not open PRs. Push stays with the controller (push gate: `git-commit` §3; Stage 5).
 - Session continuity: one omp session per task. Before hand-off read `STATE.md ## Sessions`; if this task already has a session, resume it (`omp -p -r <id> …`) instead of starting a fresh session (see the `omp` skill).
@@ -147,10 +147,10 @@ When it finishes, come back and run: /delegate
 
 1. Reload the ticket and PR comments; read `STATE.md` (status, Verification, Plan) and the plan file.
 2. Check the delivered change against the plan's goal and acceptance criteria (UAT).
-3. Verify independently, never trusting the executor's report:
+3. Independently assess the delivered artifacts and concrete command/output evidence, rather than accepting a bare success claim:
    - `git diff <base>...HEAD` plus uncommitted changes; nothing outside scope; 1.4 conventions followed.
-   - Truth Tables, unknown-enum fallback, and raw-payload HTTP tests present; no debug noise; defensive checks present.
-   - Run the repo's full lint and test commands as CI runs them.
+   - For changed external integrations: Truth Tables, unknown-enum fallback, and raw-payload HTTP tests present. For all changes: no debug noise; relevant defensive checks present.
+   - During fixes, run checks for affected behavior/risk. At delivery, satisfy repository-required CI-equivalent lint/tests and acceptance criteria; reuse valid evidence for unchanged code. Rerun on the host only for environment differences, incomplete evidence, or remaining material risk. No extra unchanged CLEAN round.
    - If the base moved, check new base code for reusable helpers or spec changes.
 4. When the change needs runtime proof (API behavior, messaging, migrations), deploy to Dev with the repo's existing deploy workflow and check logs, endpoints, and monitoring against the acceptance criteria.
 5. Gaps found → record each in `STATE.md` `## Verification`, write `v<N+1>` containing only the delta (findings, corrective tasks, pointer to `v<N>`), repeat Stage 2's dual review, then Stage 3 with `v<N+1>` as the executor's plan.
@@ -160,7 +160,7 @@ When it finishes, come back and run: /delegate
 ### Stage 5 — Deliver
 
 1. Report Done / Not done / Next and wait for the human to say "push" (push gate: `git-commit` §3). Never commit or push before that.
-2. After the push gate opens: follow `git-commit` (merge the base, re-check it, re-run lint/tests, squash into one commit), push, then open the PR with `open-pr`.
+2. After the push gate opens: follow `git-commit` (merge the base, review what changed, rerun invalidated required checks, squash into one commit), push, then open the PR with `open-pr`.
 3. Wait for the real checks; failures go to Stage 6. Green → auto-deploy to Dev with the repo's existing deploy workflow, report the result.
 
 ### Stage 6 — PR loop

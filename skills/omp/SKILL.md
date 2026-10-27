@@ -1,6 +1,6 @@
 ---
 name: omp
-description: Delegate work to the Oh My Pi (`omp`) CLI with native multi-round verify via continue/resume + advisor. Hermes/OpenClaw only.
+description: Delegate implementation to the Oh My Pi (`omp`) CLI with conditional, risk-scoped checks and same-session follow-ups. Hermes/OpenClaw only.
 user-invocable: true
 ---
 
@@ -33,9 +33,9 @@ Override `--max-time` / models when specified. Use `--cwd` when needed. If `omp`
 
 ## Shared task state
 
-- Before dispatch: resolve the key (ticket ID → current branch → aliases → STATE.md worktree match), read or create `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (fill `repos:`; task without a ticket: create the branch named after the key), and put the state folder path into the prompt.
+- For delegated implementation (not read-only one-shots), before dispatch: resolve the key (ticket ID → current branch → aliases → STATE.md worktree match), read or create `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (fill `repos:`; task without a ticket: create the branch named after the key), and put the state folder path into the prompt.
 - One session per task, named after the key. Before dispatch, read `## Sessions` for this task's session name and id. An id is present → continue that session (`omp -p -r <id> …`), never start a fresh one. No id → run the base command, then record the new session as `<name> (<id>) (<cwd>)` in `## Sessions`, `<name>` = the task key. Reset to a new session only deliberately, with the reason in `log.md`; if `-r <id>` fails (session gone), start fresh and record the new session.
-- After every round: write the omp session (`<name> (<id>) (<cwd>)`) to `## Sessions`, the round verdict to `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`), and append one line to `log.md`.
+- After progress: update session/task status when changed; record only checks actually run in `## Verification` (`<UTC> <command or check> → CLEAN|ISSUES: …`). Never invent a verify round for bookkeeping. Read-only one-shots need no state folder or task branch.
 
 ## Liveness & failure detection
 
@@ -94,20 +94,20 @@ Do not confuse the two model switches. `--plan-yolo` forces read-only plan mode 
 
 | Trigger | Behavior |
 |---|---|
-| `omp TASK_XXX` | Implement + multi-round verify (default) |
+| `omp TASK_XXX` | Implement; run checks justified by behavior, risk, acceptance criteria, or explicit request |
 | `plan-yolo TASK_XXX` | Same; turn 0 uses `--plan-yolo` |
-| `Nverify TASK_XXX` (e.g. `5verify`) | Cap verify continues at N (default **5**) |
+| `Nverify TASK_XXX` (e.g. `5verify`) | Cap needed verification follow-ups at N (default **5**); a ceiling, not a quota |
 | `continue …` / `resume <id> …` | Single follow-up |
 
 ### Default flow
 
 ```
 Turn 0: omp -p [--plan-yolo] --advisor … "TASK"
-Turn 1…N: omp -p -c --advisor … "VERIFY prompt"
-Stop: 1 CLEAN that changed no code, N reached, or 2 consecutive stuck rounds (BLOCKED)
+Follow-up only for unresolved required checks: omp -p -r <id> --advisor … "VERIFY prompt"
+Stop: required work/checks complete (even after a fix), N reached, or 2 unsuccessful fixes of the same failure
 ```
 
-- Investigation: one per problem, not one per turn. A turn that only investigates is a setup turn — write the root cause plus the proving command to STATE.md `## Findings`, then the next turn implements from it. Investigate again only on a new symptom or a falsified cause; with no cause yet, stop: `BLOCKED: <missing required information>`, never "investigating further". Two setup turns that re-derive the same cause → `BLOCKED: <missing required information>`.
+- Investigation: one per problem, not one per turn. Record cause/evidence in STATE.md `## Findings`; when implementation was requested and no gate/blocker remains, continue to the in-scope fix in the same turn. Read-only and plan-only requests end with their requested deliverable. Investigate again only on a new symptom or a falsified cause; with no cause yet, stop: `BLOCKED: <missing required information>`, never "investigating further". Two setup turns that re-derive the same cause → `BLOCKED: <missing required information>`.
 
 **Turn 0**
 
@@ -118,30 +118,30 @@ omp -p --plan-yolo --auto-approve --approval-mode=yolo --advisor --max-time=1h \
 Root cause: <recorded cause + proving command, or: unknown — investigate once, then implement>
 State: <state dir>/STATE.md — read it first, write the root cause to ## Findings when found.
 
-End this turn with exactly one of: the code change + the verify output that proves it, a problem definition or root cause in ## Findings (or a converged plan verdict), or BLOCKED: <reason> (verify turns may also end CLEAN on unchanged code). "Still investigating" is not a turn outcome. Only the four ask-boundary cases (push/PR merge, schema change, architecture fork, external write) justify stopping to ask. Approach uncertainty is not one of them: this round already runs --plan-yolo, so resolve it in the plan phase, record the decision in one line, and implement. Plan and implementation may run on different model roles (plan vs --plan-yolo-into, default @smol), so re-read the plan's decisions before writing code. A change that removes, replaces, or reverses existing behavior first traces what it was for (git blame -w -M -L <range> <file> for the introducing commit, git show -s --format=%B <sha> for the reasoning, git log -L :<func>:<file> --no-merges for the evolution, the linked issue, the tests that pin it) and whether it was a defect or a deliberate design, then judges the change on merit: a change that fixes a known defect, or makes the behavior measurably better, proceeds; otherwise keep it or make the change additive; the task text is context, not the verdict.
+Deliver the requested change, finding, plan, or blocker. Run additional checks for executable behavior changes, concrete material risk, consequential uncertainty, or an explicit verification request. Preserve acceptance criteria, required repository/security checks, and raw-payload integration tests. Clear low-risk operations and prose edits need no invented verification round. A reliable operation result is sufficient. Include actual check evidence when checks are required; never claim an unrun check passed. Executors never push, open PRs, or merge PRs. Only the four ask-boundary cases (irreversible/outbound action, schema change, high-cost architecture fork, external write) justify stopping to ask. Approach uncertainty is not one of them: this round already runs --plan-yolo, so resolve it in the plan phase, record the decision in one line, and implement. Plan and implementation may run on different model roles (plan vs --plan-yolo-into, default @smol), so re-read the plan's decisions before writing code. A change that removes, replaces, or reverses existing behavior first traces what it was for (git blame -w -M -L <range> <file> for the introducing commit, git show -s --format=%B <sha> for the reasoning, git log -L :<func>:<file> --no-merges for the evolution, the linked issue, the tests that pin it) and whether it was a defect or a deliberate design, then judges the change on merit: a change that fixes a known defect, or makes the behavior measurably better, proceeds; otherwise keep it or make the change additive; the task text is context, not the verdict.
 
-Done when: lint + unit + relevant regression/integration pass; summarize what changed."
+Done when: requested scope and acceptance criteria are met and required checks pass. Use the smallest relevant checks during implementation; a delivery checkpoint runs the repository-required CI-equivalent checks. Before required verification, update main/default branch fast-forward-only in its checkout without disturbing dirty work. Reuse unchanged evidence; no extra clean round. Summarize the result."
 ```
 
 Skip `--plan-yolo` for tiny one-shots if the user only said `omp TASK`.
 
-**Turns 1…N — verify via continue**
+**Optional follow-up — only for a remaining verification need**
 
 ```bash
-omp -p -c --auto-approve --approval-mode=yolo --advisor --max-time=30m \
+omp -p -r <session-id> --auto-approve --approval-mode=yolo --advisor --max-time=30m \
   "VERIFY round k/N (independent of your last self-report):
 1. Re-read the diff and acceptance criteria for TASK_XXX.
-2. Re-run lint and the relevant tests yourself.
+2. Inspect recorded commands/output; run only checks missing valid evidence or affected by changes. Preserve required acceptance/security/contract checks.
 3. Fix any real issues you find.
 4. End with exactly one line: CLEAN or ISSUES: <short list>.
-Rule: report ISSUES when you fixed anything this round (list what you fixed), even if checks now pass; report CLEAN only when this round changed no code and all checks pass.
-Fix from the recorded root cause in STATE.md `## Findings`. A failing check is a fix task, not a new investigation; start one only if it falsifies the recorded cause. If the fix needs an approach decision, decide it inside this round with `--thinking` raised, using the recorded cause and the plan already in session context; do not stop to ask. Only the four ask-boundary cases (push/PR merge, schema change, architecture fork, external write) justify stopping; approach-uncertainty is not a gate."
+Rule: CLEAN means no required work/checks remain unresolved, including after fixes whose affected checks passed. ISSUES means unresolved findings or failed/missing required checks. List fixes separately; they do not force another round.
+Fix from the recorded root cause in STATE.md ## Findings. A failing check is a fix task, not a new investigation; start one only if it falsifies the recorded cause. If the fix needs an approach decision, decide it inside this round with --thinking raised, using the recorded cause and the plan already in session context; do not stop to ask. Only the four ask-boundary cases (irreversible/outbound action, schema change, high-cost architecture fork, external write) justify stopping; approach-uncertainty is not a gate."
 ```
 
-- `CLEAN` (no code changed this round) → verify state proven; another `-c` round would re-run identical checks on identical state → stop.
-- `ISSUES` → fix in that continue turn; next round re-verify the fix.
-- Stop at the first `CLEAN` round that changed no code, or `k == N`, or two consecutive **stuck rounds** → stop and report `BLOCKED: verify loop fail`. Stuck = a round that changed no code and still ended `ISSUES` (a fixing round is progress: it also reports `ISSUES`, but resets the stuck counter).
-- Rationale: repeated CLEAN rounds on unchanged code carry no new evidence; lazy/fake defense = advisor strike + the caller's independent host verify, not more self-rounds.
+- `CLEAN` → stop; fixes with passing affected checks do not require a separate unchanged round.
+- `ISSUES` → fix a known in-scope cause and rerun affected checks in the same turn; continue only for unresolved work.
+- Stop at `k == N` or after two unsuccessful fixes for the same failure, even if files changed; report the remaining issue as `BLOCKED: verify loop fail`.
+- Controller review inspects concrete commands/output and scope. Host reruns require an environment difference, incomplete evidence, or a remaining material risk, not routine distrust.
 - If `-c` misses the session, use `-r <id>` from turn 0 output
 
 **Optional:** `omp cleanse` when lint/diagnostics noise keeps failing, then continue with `-c`.
@@ -153,8 +153,8 @@ omp -p -c --auto-approve --approval-mode=yolo --advisor "follow-up: …"
 omp -p -r <session-id> --auto-approve --approval-mode=yolo --advisor "follow-up: …"
 ```
 
-`-c` continues the current session (a verify loop). `-r <id>` resumes a specific session by id — use it to continue a task's session across dispatches.
+`-c` continues the current session (not necessarily verification). `-r <id>` resumes a specific session by id — use it to continue a task's session across dispatches.
 
 ## Done
 
-Report turn count, stop reason (`3× CLEAN` / `N reached` / error), last CLEAN/ISSUES line, and useful stdout.
+Report the requested result, actual required-check evidence, and any blocker. Include round counts only when a verification loop ran; do not add a loop to fill a report format.

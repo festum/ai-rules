@@ -22,15 +22,15 @@ Tested rules, not a template: each one replaces a failure seen in daily multi-ag
 
 | Method | Source | Lives in | Effect |
 |---|---|---|---|
-| Agent-Computer Interface discipline | SWE-agent (arXiv:2405.15793) | `rules.md` §9 | One tool call per turn, line windows instead of full-file scrolls, output capped at 100 lines, lint before edit, edit-loop brake |
-| Plan critique with a convergence exit | Self-refinement research (Self-Refine, Reflexion) | `rules.md` §1 | Critique rounds: each checks correct, complete, contradictory, simpler; two clean rounds exit, five rounds cap, no convergence goes to a human instead of executing a broken plan |
+| Agent-Computer Interface discipline | SWE-agent (arXiv:2405.15793) | `rules.md` §9 | Batch independent reads, use bounded file windows, cap output, run risk-scoped checks, and stop repeated unsuccessful fixes |
+| Plan critique with a convergence exit | Self-refinement research (Self-Refine, Reflexion) | `rules.md` §1 | Review complex/high-risk plans for material gaps; stop when resolved, without a quota of clean rounds |
 | Cross-session task state | GSD's per-project state records, adapted | `rules.md` §8 | One `STATE.md` per task, shared by every agent, session, and worktree, so work never restarts from zero |
 
 ## Validated in use
 
 Each rule below replaced a real failure:
 
-- **Claims without evidence**: every `done / pass / CLEAN` names a command run that session, silence proves nothing, unknown stays `UNVERIFIED` (§10).
+- **Claims without evidence**: check-pass claims require observed output; reliable operation results suffice for routine actions. Reporting never creates a need for tests (§10).
 - **Re-diagnosis loops**: the root cause gets recorded once with its proving command; later turns implement from it (§1).
 - **Repetition under stress**: a tripwire in `sticky_rules.md` forces a rewrite from a clean angle.
 - **Behavior overturned on ticket say-so**: origin gets traced before any reversing change (§4).
@@ -53,6 +53,12 @@ One run links the rules in `system/` into each tool's native rules path and link
 Sub-commands: `rules` links rules only, `skills` refreshes skill links and external packs, `update` is an alias for `skills`, plain `./scripts/setup.sh` does both.
 
 External packs (real directories under `~/.agents/skills`, symlinked into other agents): `cc-skills-golang` via `npx skills`, a subset of `obra/superpowers` (systematic-debugging), a subset of `anthropics/skills` (doc-coauthoring, docx, pdf, skill-creator, xlsx), plus humanizer and task-observer.
+
+### Verification and activation scope
+
+Simple questions, lookups, prose edits, and clear low-risk commands do not start a verification loop. Behavior changes, material risk, consequential uncertainty, explicit verification requests, and required acceptance/security/contract checks determine what must run. Delivery still requires the repository's applicable CI-equivalent checks. Valid evidence is reused; no extra unchanged `CLEAN` round or routine host retest is required.
+
+Rules links control local instructions; skill frontmatter controls discovery, and skill bodies supply dispatch prompts. Third-party bundles, including task-observer, remain unchanged. Local activation rules do not change a third-party description or guarantee that a harness will suppress automatic loading. Where needed, use the harness's supported skill-permission or discovery settings; do not rewrite the third-party bundle.
 
 ## Daily workflow
 
@@ -78,7 +84,7 @@ Edit a skill in this repo and existing links pick it up. A new skill folder need
 | `review-pr` | Review a teammate's PR against its Jira spec and current base branch |
 | `git-commit` | Commit, merge, push rules: Conventional Commits, base-branch sync, push gate, squash |
 | `dependabot` | Find, approve, auto-merge dependabot PRs; deploy gates and monitoring |
-| `omp` | Dispatch the `omp` headless executor with multi-round verify (Hermes/OpenClaw only) |
+| `omp` | Dispatch the headless executor with required checks and conditional same-session follow-ups (Hermes/OpenClaw only) |
 | `voice` | Shape every generated or edited prose output |
 | `humanizer-ref` | Reference-register documents: CVs, API docs, specs, changelogs, READMEs |
 | `humanizer-zh` | Edit Chinese prose: cut filler, repetition, and templated phrasing while keeping facts and the author's voice |

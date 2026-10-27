@@ -44,7 +44,7 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 - `git fetch origin`, then **merge** the base branch (default `main`). Do not rebase.
 - Resolve conflicts in favor of this branch's changes.
-- After every merge, re-check what the base brought in: reusable helpers or modules that should replace local code, or spec changes that need matching adjustments. Re-run lint and tests afterwards.
+- After a merge, review what the base brought in: reusable helpers/modules or spec changes needing adjustment. Rerun required checks invalidated by that merge; do not repeat checks backed by valid evidence on unchanged inputs.
 
 ## 3. Push gate
 
@@ -75,7 +75,7 @@ Merge authority belongs to Hermes only (the human when Hermes is absent). Execut
 - Preconditions before arming: real CI checks green (approval-gate jobs are exempt, they stay red until a human signs off), no unresolved review threads, `reviewDecision` = `APPROVED`.
 - Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. The merge still needs the human's go-ahead in either case, so never work around it.
 - When the merge lands on GitHub, prefer **Squash and merge** so the PR lands as one commit with a message per §1. Use a merge commit only when the human explicitly asks.
-- Branch and worktree cleanup rides with the merge, not a separate question: once the merge lands, local merge into the base included, delete the local branch, the remote branch, and the task's worktree in the same pass (`git branch -d <name>`, `git push origin --delete <name>`, `git worktree rm <path>` then `git worktree prune`), without asking.
+- After a merge, remove only merged local branches and clean task worktrees; preserve dirty or unmerged work. Remote deletion requires explicit authorization covering that deletion. A merge instruction alone does not authorize deleting remote branches, and finishing local work alone does not authorize any branch/worktree deletion.
 
 ## 6. Setting work aside
 
