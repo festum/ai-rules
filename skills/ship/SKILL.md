@@ -27,6 +27,7 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 ### 1. Prepare and branch
 - Read or create the shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite an existing `Scope & constraints`. Fill `repos:` on creation; a ticketless task names the branch after the T- key. Name the task's omp session after the key; record it in `## Sessions` as `<name> (<id>) (<cwd>)` when the session starts (resume by id; see the `omp` skill).
 - Reload the Jira ticket and fill any missing spec.
+- If the project has a snapshot, load it in `snapshot` read mode (`arch`, `facts`, `defects`, `conflicts`) for orientation; verify any snapshot claim the design relies on against its cited source. Never trigger a sync.
 - Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
 - Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
 - Use the built-in `plan` to break the task down; track state with `todo`.

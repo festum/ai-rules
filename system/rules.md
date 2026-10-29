@@ -109,7 +109,7 @@ When Hermes is absent, enforce these local defaults:
 1. Language: conversational Traditional Chinese or English. PRs, Jira, docs, and comments in English. Rules, skills, and configs remain English-only.
 2. State: maintain shared state per §8; todo lists remain session-local.
 3. Plan control: use editor/agent native plan and todo features.
-4. Read-only scope: only current working directory or worktree is writable; external paths are read-only.
+4. Read-only scope: only current working directory or worktree is writable; external paths are read-only, except the shared state directory (§8), the `snapshot` skill's root `${SSOT_DIR:-$HOME/.local/state/ssot}`, and, during an explicit `/snapshot sync`, the checkouts listed in `snapshot_projects` (default-branch switch, fast-forward pull, merged local worktree/branch cleanup).
 5. OMP dispatch: preflight `omp --version`. Exit ≠ 0, empty stdout/stderr, or no session file in `~/.omp/agent/sessions/` within silence limit indicates dispatch failure; abort immediately. Use background execution only if host retains child ownership across turns with durable metadata; otherwise execute foreground.
 
 ## 8. Shared Task State
@@ -154,7 +154,7 @@ Single state directory per task across all agents: `${AGENT_STATE_DIR:-$HOME/.lo
 
 ### 8.6 STATE.md Template
 
-Copy `~/.ai-rules/STATE-template.md` (or resolve via `system/templates/STATE.md`) verbatim. Copy headers literally without inline descriptions.
+Copy `~/.local/state/templates/STATE-template.md` (or resolve via `system/templates/STATE.md`) verbatim. Copy headers literally without inline descriptions.
 
 ## 9. Agent-Computer Interface (ACI) Discipline
 

@@ -89,6 +89,7 @@ Read-only stage detection → short plan (which stage, which files this run touc
 #### 1.2 Gather sources and ingest
 
 1. Load the ticket via the tracker tool: description, acceptance criteria, comments, linked issues, attachments, last-updated time.
+   - If the project has a snapshot, load it in `snapshot` read mode (`arch`, `facts`, `conflicts`, `plan` sections relevant to the ticket) for orientation. Verify every snapshot claim the plan relies on against its cited source; never trigger a sync.
 2. Follow every link (RFC, wiki pages, PRD, design docs, chat excerpts). Record each with its URL, author, and last-modified time; the list goes into the plan in Stage 2.
 3. Read the producer code paths and the related repos the ticket touches; record findings with full_file_path:line evidence. Use parallel read-only subagents for broad sweeps.
 4. Read the project docs (README, agent/spec files) and note every conflicting statement for 1.3.

@@ -88,6 +88,7 @@ Edit a skill in this repo and existing links pick it up. A new skill folder need
 | `voice` | Shape every generated or edited prose output |
 | `humanizer-ref` | Reference-register documents: CVs, API docs, specs, changelogs, READMEs |
 | `humanizer-zh` | Edit Chinese prose: cut filler, repetition, and templated phrasing while keeping facts and the author's voice |
+| `snapshot` | Cited, incremental project knowledge snapshot (arch, facts, defects, history, plan, conflicts); manual sync at most hourly, ask mode for snapshot-only Q&A, read mode for other skills |
 | `wiz` | Wiz GraphQL writes with browser session auth and Chrome CDP cookie refresh |
 
 ## Cleanup
