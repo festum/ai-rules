@@ -31,6 +31,7 @@ Reference-register documents (CVs, API docs, technical specs, legal, changelogs)
 3. **Keep it neutral.** Do not add opinions, first person, mixed feelings, tangents, or deliberate rhythmic variation (base `### Voice`: reference text stays neutral and plain). The correct human voice for reference documents *is* neutral and parallel.
 4. **Apply the overrides below** where they conflict with the base humanizer.
 5. **Deliverable** matches the base humanizer: draft rewrite, "still-AI" audit bullets, final rewrite with 0 em/en dashes.
+6. **Facts**: this skill never verifies claims. When accuracy matters, run `fact-check` before it and its claim-diff step after it.
 
 ## Overrides for reference register
 
