@@ -97,7 +97,7 @@ Each source keeps its own cursor in `manifest.json` `.sources["<key>"]`. An empt
 
 | Source key | Delta | New cursor |
 |---|---|---|
-| `git:<owner/repo>` | `snapshot.sh git-delta <path> <cursor or ->` (after `prepare`) | `{"cursor":"<head>"}` |
+| `git:<owner/repo>` | `snapshot.sh git-delta <path> <cursor or ->` (after `prepare`; read files at `origin/<default>`) | `{"cursor":"<head>"}` |
 | `pr:<owner/repo>` | `snapshot.sh pr-delta <owner/repo> <dir>` → read only the `changed` PRs (`gh pr view`, diff stat, review threads); `gone` PRs leave `## In flight` | `{"open":<open array>}` |
 | `jira:<n>` | JQL `(<query>) AND updated >= "<cursor minute>"` in the Jira user's timezone, then drop issues whose `key`+`updated` equals one in the cursor's `seen` list | `{"cursor":"<max updated>","seen":["<key>@<updated>" at that max]}` |
 | `slack:<channel>` | channel history with `oldest=<cursor ts>` (exclusive), plus replies to threads active since then. Never date-granular search | `{"cursor":"<latest ts>"}` |
@@ -144,14 +144,14 @@ One short block: sources scanned and skipped, files changed, new conflicts, mirr
 
 ## Repo preparation
 
-Sync only. `snapshot.sh prepare <path>`:
-- fetches with prune, switches the checkout to the default branch, and `pull --ff-only`;
-- removes local worktrees with no uncommitted changes whose branch is merged;
-- deletes local branches that are merged and that no worktree has checked out.
+Sync only; implements `rules.md` §2 repo freshness. `snapshot.sh prepare <path>`:
+- fetches with prune;
+- a clean checkout not in use → switches to the default branch and `pull --ff-only`; a dirty or in-use checkout (a running task's, or listed under `## Repos & worktrees` in a `STATE.md` not under `_done/`) is left as is;
+- removes clean, not-in-use worktrees whose branch is merged, and deletes merged local branches no worktree or open task uses.
 
-Merged means either a merged PR whose head equals the branch tip, or the tip is contained in the default branch and the branch carried its own work (it tracked an upstream, or its tip moved since creation). Direct merges count. A local branch that was never committed to is kept.
+Merged means a merged PR whose head equals the branch tip, or the tip is contained in the default branch with own-work evidence: a reflog commit, cherry-pick or real merge, or an upstream other than the default branch. Direct merges count; branches that only fast-forwarded or never committed are kept.
 
-It never touches remote branches, dirty worktrees or unmerged branches. A dirty checkout or a failed fast-forward makes it exit non-zero, and sync aborts. Never stash, reset or force to get past it.
+It never touches remote branches, dirty or unmerged work. A failed fetch or fast-forward makes it exit non-zero and sync aborts, stricter than §2's continue-from-local-refs, because a snapshot must not advance cursors on stale refs. Never stash, reset or force to get past it. Sync reads repo content from `origin/<default>` (`git show`, `git grep`), so a checkout left as is does not change what is scanned.
 
 ## Read
 

@@ -95,40 +95,63 @@ cmd_refresh() {
   echo "ref=$base @ $(git -C "$repo" rev-parse --short "$base")"
 }
 
+realdir() { local p=$1; case "$p" in "~"*) p="$HOME${p#\~}";; esac; (cd "$p" 2>/dev/null && pwd -P) || echo "$p"; }
+
+# Lines "worktree <real path>" and "<repo name>#branch <name>" from open task state.
+in_use_refs() {
+  find "$STATE_ROOT" -maxdepth 2 -name STATE.md -not -path '*/_done/*' 2>/dev/null | while IFS= read -r f; do
+    awk '/^## Repos & worktrees/{on=1; next} /^## /{on=0} on' "$f"
+  done | while IFS= read -r line; do
+    repo=$(printf '%s' "$line" | sed -E 's/^- *([^ |]+).*/\1/'); repo=${repo##*/}
+    br=$(printf '%s' "$line" | grep -oE 'branch [^ |]+' | head -1 | cut -d' ' -f2 || true)
+    wt=$(printf '%s' "$line" | grep -oE 'worktree [^ |]+' | head -1 | cut -d' ' -f2 || true)
+    [ -n "$br" ] && echo "$repo#branch $br"
+    [ -n "$wt" ] && echo "worktree $(realdir "$wt")"
+  done
+  return 0
+}
+
 cmd_prepare() {
   local repo=${1:?repo path}
-  local base def cur slug wt br
+  local base def cur slug name wt br top used
   is_git "$repo"
   git -C "$repo" fetch --quiet --prune origin || die "fetch failed: $repo"
   base=$(default_ref "$repo"); def=${base#origin/}
   cur=$(git -C "$repo" branch --show-current)
-  [ -z "$(git -C "$repo" status --porcelain)" ] || die "dirty checkout on ${cur:-detached} in $repo; not switching"
-  if [ "$cur" != "$def" ]; then
-    git -C "$repo" switch --quiet "$def" || die "cannot switch to $def in $repo"
-    echo "switched ${cur:-detached} -> $def"
-  fi
-  git -C "$repo" pull --quiet --ff-only origin "$def" || die "pull --ff-only failed (diverged?) in $repo"
-  echo "pulled $def @ $(git -C "$repo" rev-parse --short HEAD)"
-
   slug=$(git -C "$repo" remote get-url origin | sed -E 's#^(git@[^:]+:|https?://[^/]+/)##; s#\.git$##')
+  name=${slug##*/}
+  top=$(realdir "$(git -C "$repo" rev-parse --show-toplevel)")
+  used=$(in_use_refs)
+  in_use() { printf '%s\n' "$used" | grep -xF "$1" >/dev/null; }
 
-  # merged: a merged PR whose head is the tip, or the tip is in the default
-  # branch and the branch carried its own commits (tip moved since creation,
-  # or it tracked an upstream). A never-committed local branch is kept.
+  if [ -n "$(git -C "$repo" status --porcelain)" ]; then
+    echo "kept checkout on ${cur:-detached}: dirty; read $base"
+  elif in_use "worktree $top" || { [ -n "$cur" ] && [ "$cur" != "$def" ] && in_use "$name#branch $cur"; }; then
+    echo "kept checkout on ${cur:-detached}: in use; read $base"
+  else
+    if [ "$cur" != "$def" ]; then
+      git -C "$repo" switch --quiet "$def" || die "cannot switch to $def in $repo"
+      echo "switched ${cur:-detached} -> $def"
+    fi
+    git -C "$repo" pull --quiet --ff-only origin "$def" || die "pull --ff-only failed (diverged?) in $repo"
+    echo "pulled $def @ $(git -C "$repo" rev-parse --short HEAD)"
+  fi
+
   merged() {
-    local b=$1 tip created
+    local b=$1 tip up
     tip=$(git -C "$repo" rev-parse "refs/heads/$b")
-    [ "$(gh pr list -R "$slug" --state merged --head "$b" --limit 1 --json headRefOid -q '.[0].headRefOid' 2>/dev/null)" = "$tip" ] && return 0
+    [ "$(gh pr list -R "$slug" --state merged --head "$b" --limit 1 --json headRefOid -q '.[0].headRefOid' </dev/null 2>/dev/null)" = "$tip" ] && return 0
     git -C "$repo" merge-base --is-ancestor "$tip" "$base" || return 1
-    git -C "$repo" rev-parse --abbrev-ref "$b@{upstream}" >/dev/null 2>&1 && return 0
-    created=$(git -C "$repo" reflog show --format=%H "refs/heads/$b" 2>/dev/null | tail -1)
-    [ -z "$created" ] || [ "$created" != "$tip" ]
+    up=$(git -C "$repo" config --get "branch.$b.merge" 2>/dev/null || true)
+    [ -n "$up" ] && [ "$up" != "refs/heads/$def" ] && return 0
+    git -C "$repo" reflog show --format=%gs "refs/heads/$b" 2>/dev/null | grep -E '^(commit|cherry-pick)|Merge made by' >/dev/null
   }
 
   git -C "$repo" worktree prune
   git -C "$repo" worktree list --porcelain \
     | awk '/^worktree /{w=substr($0,10)} /^branch /{print w "\t" substr($0,19)}' | tail -n +2 \
     | while IFS="$(printf '\t')" read -r wt br; do
+        if in_use "worktree $(realdir "$wt")" || in_use "$name#branch $br"; then echo "kept worktree $wt ($br): in use"; continue; fi
         if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then echo "kept worktree $wt ($br): dirty"; continue; fi
         if merged "$br"; then
           git -C "$repo" worktree remove "$wt" && echo "removed worktree $wt ($br)"
@@ -139,7 +162,8 @@ cmd_prepare() {
 
   git -C "$repo" for-each-ref refs/heads --format='%(refname:short)' | while IFS= read -r br; do
     [ "$br" = "$def" ] && continue
-    git -C "$repo" worktree list --porcelain | grep -qx "branch refs/heads/$br" && continue
+    in_use "$name#branch $br" && continue
+    git -C "$repo" worktree list --porcelain | grep -x "branch refs/heads/$br" >/dev/null && continue
     if merged "$br"; then git -C "$repo" branch --quiet -D "$br" && echo "deleted branch $br"; fi
   done
 }
@@ -313,7 +337,7 @@ usage: snapshot.sh <cmd> ...
   gate <dir>                         GO | RESUME | THROTTLED | LOCKED
   status <dir>                       manifest summary (run state, ages, sources)
   refresh <repo-path>                fetch --prune only; read mode reads origin/<default>
-  prepare <repo-path>                sync only: switch to default, pull --ff-only, drop merged local worktrees/branches
+  prepare <repo-path>                sync only: switch idle clean checkout to default + pull --ff-only; drop merged local worktrees/branches
   git-delta <repo-path> <cursor|->   commits and changed files on origin/<default> since cursor (run prepare first)
   pr-delta <owner/repo> <dir>        open PRs + changed/gone vs manifest
   state-delta <since-iso|-> <repo>.. STATE.md files whose repos: header names these repos

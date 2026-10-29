@@ -75,7 +75,7 @@ Merge authority belongs to Hermes only (the human when Hermes is absent). Execut
 - Preconditions before arming: real CI checks green (approval-gate jobs are exempt, they stay red until a human signs off), no unresolved review threads, `reviewDecision` = `APPROVED`.
 - Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. The merge still needs the human's go-ahead in either case, so never work around it.
 - When the merge lands on GitHub, prefer **Squash and merge** so the PR lands as one commit with a message per §1. Use a merge commit only when the human explicitly asks.
-- After a merge, remove only merged local branches and clean task worktrees; preserve dirty or unmerged work. Remote deletion requires explicit authorization covering that deletion. A merge instruction alone does not authorize deleting remote branches, and finishing local work alone does not authorize any branch/worktree deletion.
+- After a merge, and during repo freshness (`rules.md` §2), remove only merged local branches and clean worktrees whose branch is merged; preserve branches in use and dirty or unmerged work. Remote deletion requires explicit authorization covering that deletion. A merge instruction alone does not authorize deleting remote branches, and finishing local work alone does not authorize any branch/worktree deletion.
 
 ## 6. Setting work aside
 

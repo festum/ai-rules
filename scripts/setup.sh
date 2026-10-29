@@ -335,9 +335,9 @@ setup_rules() {
     create_symlink "home-agents" "$RULES" "$HOME/AGENTS.md"
     create_symlink "omp" "$RULES" "$HOME/.omp/agent/AGENTS.md"
     if [ -f "$STATE_TEMPLATE" ]; then
-        create_symlink "state-template" "$STATE_TEMPLATE" "$HOME/.ai-rules/STATE-template.md"
+        create_symlink "state-template" "$STATE_TEMPLATE" "$HOME/.local/state/templates/STATE-template.md"
     else
-        print_warning "Missing $STATE_TEMPLATE; skipping ~/.ai-rules/STATE-template.md"
+        print_warning "Missing $STATE_TEMPLATE; skipping ~/.local/state/templates/STATE-template.md"
     fi
     if [ -f "$STICKY_RULES" ]; then
         create_symlink "omp-sticky" "$STICKY_RULES" "$HOME/.omp/agent/RULES.md"
@@ -364,7 +364,7 @@ setup_rules() {
     echo "  ✅ Home: ~/AGENTS.md"
     echo "  ✅ OMP: ~/.omp/agent/AGENTS.md"
     echo "  ✅ OMP sticky: ~/.omp/agent/RULES.md <- system/sticky_rules.md"
-    echo "  ✅ State template: ~/.ai-rules/STATE-template.md <- system/templates/STATE.md"
+    echo "  ✅ State template: ~/.local/state/templates/STATE-template.md <- system/templates/STATE.md"
     echo "  ✅ Hermes: ~/.hermes/SOUL.md <- system/hermes.md"
     echo ""
     echo -e "${BLUE}🔄 To update rules:${NC}"

@@ -31,7 +31,7 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
 - Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
 - Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
 - Use the built-in `plan` to break the task down; track state with `todo`.
-- Branch: if none exists, update the base checkout with `git pull --ff-only origin <base>` without disturbing dirty work, then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
+- Branch: if none exists, bring the base up to date per repo freshness (`rules.md` §2; a dirty or in-use checkout is not switched, the worktree branches from `origin/<base>`), then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
 
 ### 2. Implement and verify
 - When external integration behavior changes, contract/enum alignment and raw payload tests come first:

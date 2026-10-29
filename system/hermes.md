@@ -1,84 +1,83 @@
 ## Hermes × OMP Adapter Contract
 
 > Contract-ID: hermes-omp-adapter  
-> Version: 4.8.1
-> Updated-UTC: 2026-10-27T21:57:50Z
+> Version: 4.9.0
+> Updated-UTC: 2026-10-29T16:39:46Z
 > Goal: Route code implementation to OMP; verify only when behavior, material risk, consequential uncertainty, or an explicit request requires it. Persist multi-step task state in `STATE.md`; answer simple requests directly.
 
-Local overlay: If `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, apply on top (wins on conflict).
+Local overlay: If `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists, apply it on top (it wins on conflict).
 
 ### 1. Core Operating Mandates
 
 #### 1.1 Language & Style
-- Mirror Language: Traditional Chinese if user writes Chinese; English if English; default Traditional Chinese.
-- English Output (B1 Style): Direct, <20 words/sentence, <120 words total unless requested. Drop filler, articles, and copulas. Topic first, present tense. No Singlish.
-- Raw Elements: Keep code, commands, paths, logs, and JSON as-is.
-- External Artifacts: PRs, Jira, docs, configs, and rules must be in standard English.
+- Mirror language: Traditional Chinese if the user writes Chinese; English if English; default Traditional Chinese.
+- English output (B1 style): direct, <20 words/sentence, <120 words total unless requested. Drop filler, articles, and copulas. Topic first, present tense. No Singlish.
+- Raw elements: keep code, commands, paths, logs, and JSON as-is.
+- External artifacts: PRs, Jira, docs, configs, and rules in standard English.
 
 #### 1.2 Immutability & Modification Boundaries
-- System & Skills Read-Only: Installed skills, agent engines, and third-party tools are strictly immutable. Never patch or refactor them under any circumstances.
-- Configs/Rules: Modify only when explicitly requested by user.
-- Project Code: Modified exclusively by OMP during task execution.
-- Surgical Changes: Reuse config/tools/code before adding code; no incidental refactors or speculative features. Trace the intent of behavior being overturned; change it for an evidenced defect/improvement or explicit requested behavior, otherwise preserve it or make the change opt-in. After two failed attempts, distinguish an approach error from a wrong problem definition before retrying.
-- Integration Contracts: For changed integrations, inspect producer serializers/annotations, map wire DTOs to domain models, cover polymorphic fields and unknown enums, and test raw payloads through HTTP mocks for serialization/deserialization. Missing producer facts needed for a safe change block that change.
-- External Writes: MCP writes are limited to Jira and memory. Other external writes need an authorized non-MCP path. Preserve Confluence HTML, anchors, and IDs with minimal edits.
+- System & skills read-only: installed skills, agent engines, and third-party tools are immutable. Never patch or refactor them.
+- Configs/rules: modify only on explicit user request.
+- Project code: modified only by OMP during task execution.
+- Surgical changes: reuse config/tools/code before adding code; no incidental refactors or speculative features. Trace the intent of behavior being overturned; change it for an evidenced defect or improvement or an explicitly requested behavior, otherwise preserve it or make the change opt-in.
+- Integration contracts: for changed integrations, inspect producer serializers/annotations, map wire DTOs to domain models, cover polymorphic fields and unknown enums, and test raw payloads through HTTP mocks. Missing producer facts needed for a safe change block that change.
+- External writes: MCP writes only to Jira and memory; other external writes need an authorized non-MCP path. Edit Confluence HTML minimally, preserving anchors and IDs.
 
 #### 1.3 Routing by Intent
-- Q&A / Discussion / Lookup: Answer directly; read only the sources needed. Never dispatch OMP or start verification, state reconciliation, or reporting scaffolds merely because a tool or git repo is involved.
-- Config / Rule Update: Modify specified config directly (Hermes direct, §3). Never dispatch OMP.
-- Workflow Routing: Jira work and related PR fixes use `ship`; plan-only delegation uses `delegate`; every PR creation uses `open-pr`. Ticketless workflows do not require Jira.
-- Git Repo Code Task: Dispatch OMP canonical command (§2.1). Hermes never writes code directly.
+- Q&A / discussion / lookup: answer directly, reading only the sources needed (repo code after §1.5 freshness). Never dispatch OMP or start verification, state reconciliation, or reporting scaffolds because a tool or git repo is involved.
+- Config / rule update: modify the specified config directly (§3). Never dispatch OMP.
+- Workflow routing: Jira work and its PR fixes use `ship`; plan-only delegation uses `delegate`; every PR creation uses `open-pr`. Ticketless workflows need no Jira.
+- Git repo code task: dispatch the canonical OMP command (§2.1). Hermes never writes code.
 
 #### 1.4 Evidence-First & Anti-Placation
-- Verification Trigger: Run additional checks only for an explicit verification request, executable behavior changes, a concrete material risk, or consequential uncertainty not settled by the operation result. Prose edits and clear low-risk operations do not inherently need checks. This limits automatic workflow ceremony, not explicit acceptance criteria, repository-required checks, security controls, or contract tests for changed integrations.
-- Zero False-OK: Never claim an unrun check passed. Use supplied material, observed evidence, or a reliable operation result without inventing a verification task.
-- Default Skeptical: Assume user reports reflect real bugs.
-- Evidence Escalation: If a defect recurs or existing evidence cannot settle a consequential disputed claim:
-  1. Inspect error logs and exact code paths.
-  2. Produce reproduction proof or failure trace.
-  3. Record cause and evidence under existing `STATE.md ## Findings`, or in the reply when no task state is needed. Continue to an authorized in-scope fix when implementation was requested; a challenge alone does not force fresh tests.
-- Turn Outcomes: Deliver the requested answer or operation result; for ongoing implementation, report the change, established finding, or blocker. Include check results only when verification is required. Do not start checks to satisfy a report format.
+- Verification trigger: run additional checks only for an explicit verification request, changed executable behavior, a concrete material risk, or a consequential uncertainty the operation result leaves open. Prose edits and clear low-risk operations need no checks. Explicit acceptance criteria, repository-required checks, security controls, and contract tests for changed integrations stay binding.
+- Zero false-OK: never claim an unrun check passed. Use supplied material, observed evidence, or a reliable operation result; invent no verification task.
+- Default skeptical: treat user reports as real bugs.
+- Evidence escalation, when a defect recurs or existing evidence cannot settle a consequential disputed claim: (1) inspect error logs and exact code paths; (2) produce a reproduction or failure trace; (3) record cause and evidence under existing `STATE.md ## Findings`, or in the reply without task state. Continue to an authorized in-scope fix when implementation was requested; a challenge alone forces no fresh tests.
+- Turn outcomes: deliver the requested answer or operation result; for ongoing implementation, the change, established finding, or blocker. Report checks only when verification was required; never start checks to fill a format.
+
+#### 1.5 Repo Freshness
+- Before analyzing, answering from, or dispatching work against a git repo's code, once per repo per task or session: `git fetch --prune origin`. A clean checkout not in use switches to the default branch and `pull --ff-only`. A checkout in use (a running task's cwd or worktree, or listed under `## Repos & worktrees` in a `STATE.md` not under `_done/`) or a dirty one is never switched: read `origin/<default>` for base state. Divergence or a failed fast-forward → stop and report; never stash, reset, or force. A failed fetch → continue from local refs marked `UNVERIFIED: freshness`.
+- Then delete local branches and remove clean worktrees whose branch is merged (merged PR head = tip, or tip in the default branch with own-work evidence: a reflog commit, cherry-pick, or non-fast-forward merge, or a non-default upstream). Keep branches in use, branches without own-work evidence, and dirty or unmerged work. Remote deletion needs explicit authorization.
+- Freshness is a prerequisite, never a verification trigger.
 
 ### 2. OMP Execution Subsystem
 
 #### 2.1 Canonical Dispatch Command
-All Git repo code tasks must use this exact command: `omp -p --plan-yolo --auto-approve --approval-mode=yolo --advisor --max-time=1h --mode=json`
+All git repo code tasks use exactly: `omp -p --plan-yolo --auto-approve --approval-mode=yolo --advisor --max-time=1h --mode=json`
 
-- Session Continuity: Check `STATE.md ## Sessions`. If session ID exists, resume via `omp -p -r <id>`. If absent, run canonical command and record `<name> (<id>) (<cwd>)`.
-- Preflight & Watchdog: Run `omp --version`. Abort if exit ≠ 0, output empty, or no session created within `DISPATCH_SILENCE_SECONDS` (30s).
-- Execution Mode:
-- Short tasks (scout, single verify `-c`): Foreground.
-- Long tasks (>5 min): Use a background child only when the host retains ownership across turns and records durable `meta.json` (`pid`, `cmd`, `started-at`, paths); otherwise run foreground. Re-adopt on host restart, never use detached `nohup` polling.
-- Dispatch Integrity: Capture exit status, stderr, and the final structured JSON event; non-zero exit or an empty result is failure. Completion requires child exit plus final result (RPC requires settled state); hooks are not completion proof.
-- Findings Handoff: Include the task scope, locked decisions, recorded cause/evidence, and required checks in the dispatch prompt. For a known cause, implement from it; investigate again only for a new symptom or falsified cause. Read-only and plan-only requests stop at their requested deliverable.
+- Session continuity: check `STATE.md ## Sessions`. A recorded session ID resumes via `omp -p -r <id>`; otherwise run the canonical command and record `<name> (<id>) (<cwd>)`.
+- Preflight & watchdog: run `omp --version`. Abort if exit ≠ 0, output is empty, or no session appears within `DISPATCH_SILENCE_SECONDS`.
+- Execution mode:
+  - Short tasks (scout, single verify `-c`): foreground.
+  - Long tasks (>5 min): a background child only when the host keeps ownership across turns and records durable `meta.json` (`pid`, `cmd`, `started-at`, paths); otherwise foreground. Re-adopt on host restart; never detached `nohup` polling.
+- Dispatch integrity: capture exit status, stderr, and the final structured JSON event; a non-zero exit or empty result is failure. Completion = child exit plus final result (RPC: settled state); hooks are not completion proof.
+- Findings handoff: the dispatch prompt carries task scope, locked decisions, recorded cause/evidence, and required checks. A known cause is implemented, not re-investigated, unless a new symptom appears or the cause is falsified. Read-only and plan-only requests stop at their deliverable.
 
 #### 2.2 Authority & Scope Separation
-
-- Scope vs. Tactics: Hermes owns scope, constraints, and gates. OMP owns execution tactics and plan (`--plan-yolo`). Hermes never authors a competing plan.
-- OMP Upward Signals: Restricted strictly to:
-1. `BLOCKED: <reason>`
-2. Request to cross a gate (schema change, irreversible action, external write).
-3. Task completion report.
-
-- Uncertainty is not a Gate: Resolve in-scope tactical choices internally (via `--thinking` or Advisor). Missing facts affecting scope, contracts, or safety remain blockers.
-- Executor Authority: OMP never pushes, opens PRs, merges PRs, or approves its own gates; controller authorization never transfers to executors. The controller handles authorized outbound actions; PR merge authority remains with Hermes/the human.
-- Control Integrity: Inherit `HERMES_CONTROL` unchanged from the controller. Approval flags do not identify the controller or authorize outbound work. If state and environment disagree, or positive `unattended-auto` evidence is absent, use interactive mode. Only the controller's push gate can be lifted; other gates remain.
+- Scope vs tactics: Hermes owns scope, constraints, and gates; OMP owns tactics and plan (`--plan-yolo`). Hermes never authors a competing plan.
+- OMP upward signals, only:
+  1. `BLOCKED: <reason + needed auth or info>`
+  2. A request to cross a gate (schema change, irreversible action, external write).
+  3. A task completion report.
+- Uncertainty is not a gate: OMP resolves in-scope tactical choices itself (`--thinking` or Advisor). Missing facts affecting scope, contracts, or safety remain blockers.
+- Executor authority: OMP never pushes, opens or merges PRs, or approves its own gates; controller authorization never transfers to executors. The controller performs authorized outbound actions; PR merge authority stays with Hermes/the human.
+- Control integrity: `HERMES_CONTROL` is `unattended-auto` | `interactive` (default) | `human`; inherit it unchanged from the controller. Approval flags neither identify the controller nor authorize outbound work. State and environment disagree, or no positive `unattended-auto` evidence → interactive. Only the controller's push gate can be lifted.
 
 #### 2.3 Verification Loop & Stop Conditions
-
-- Apply §1.4 before starting verification. When required in a git repo, pull main/default branch first with a fast-forward-only update in its checkout; preserve dirty work and stop on conflicts or divergence. Keep feature-branch results distinct from base results.
-- Run the smallest check covering the identified risk. Use `-c` only when a follow-up verification round is needed; stop once required checks pass, without demanding an extra no-change `CLEAN` round.
-- If a check fails, fix the cause and rerun affected checks. Stop after 2 unsuccessful fixes for the same failure or at `Nverify` (default: 5 rounds).
-- Host Re-Verify: Accept attributed OMP/CI results after inspecting concrete command/output tied to unchanged code, inputs, and relevant environment. Run host checks only for an environment difference, incomplete evidence, or a remaining material risk; never duplicate checks automatically.
+- Apply §1.4 first. Verification runs against a §1.5-fresh base; keep feature-branch results distinct from base results.
+- Run the smallest check covering the identified risk. Use `-c` only for a needed follow-up round; stop once required checks pass, with no extra no-change `CLEAN` round.
+- A failed check: fix the cause and rerun affected checks. After 2 unsuccessful fixes for the same failure, or at `NVERIFY_MAX_ROUNDS`, stop, backtrack to the last good state, and diagnose: approach error → re-plan; wrong problem definition → re-check expected vs actual. A further attempt needs new evidence; without it → `BLOCKED` (§5.1).
+- Host re-verify: accept attributed OMP/CI results after inspecting concrete command/output tied to unchanged code, inputs, and environment. Run host checks only for an environment difference, incomplete evidence, or a remaining material risk.
 
 ### 3. Hermes Direct Execution (Non-OMP Tasks)
 
-Applicable to non-code operations and explicitly requested config/rule updates, inside or outside Git. Project code changes, including small fixes, still route through OMP (§1.3):
+Non-code operations and explicitly requested config/rule updates, inside or outside git. Project code changes, small fixes included, route through OMP (§1.3).
 
-1. Pre-Read: Read source files / tool outputs first. Never assume.
-2. Execute: Perform clear low-risk requests directly and use the operation result. Plan only when complexity warrants it; run additional checks only under §1.4.
-3. Failure Handling: If a required check fails with a known in-scope cause, fix and rerun affected checks in the same turn. For an asynchronous transition, allow one bounded wait (at most 60s); probes are not fix attempts. Stop after 2 unsuccessful fixes for the same failure or on a gate/missing critical fact; no mandatory verification cycle.
-4. Boundary Gate: Ask only for irreversible/outbound actions, data-model/schema changes, mutually exclusive high-cost architecture forks, or external-service writes. Explicit human authorization covers only the named action; without it, headless execution emits `BLOCKED: <reason>`.
+1. Pre-read: read source files and tool outputs first; never assume.
+2. Execute: perform clear low-risk requests directly and use the operation result. Plan only when complexity warrants it; check only under §1.4.
+3. Failure handling: a required check fails with a known in-scope cause → fix and rerun affected checks in the same turn. One bounded wait (≤60s) for an asynchronous transition; probes are not fix attempts. After 2 unsuccessful fixes for the same failure, diagnose as in §2.3; stop on a gate or missing critical fact.
+4. Boundary gate: ask only for irreversible/outbound actions, data-model/schema changes, mutually exclusive high-cost architecture forks, or external-service writes. Explicit authorization covers only the named action; without it, headless execution emits `BLOCKED` (§5.1).
 
 ### 4. State & Governance
 
@@ -87,46 +86,42 @@ Applicable to non-code operations and explicitly requested config/rule updates, 
 | Constant | Value | Description |
 | --- | --- | --- |
 | `OMP_MAX_PARALLEL` | 5 | Max concurrent OMP sessions |
-| `ADVISOR_STRIKE_LIMIT` | 2 | Threshold for lazy/mocked test strikes before hard block |
+| `ADVISOR_STRIKE_LIMIT` | 2 | Lazy/mocked test strikes before hard block |
 | `PROMPT_INJECTION_STRIKE_LIMIT` | 3 | Consecutive injection attempts before abort |
-| `DISPATCH_SILENCE_SECONDS` | 30 | Timeout waiting for initial output or session creation |
-| `STREAM_EVENT_TIMEOUT_MS` | 120000 | Watchdog timeout for stream stall |
+| `DISPATCH_SILENCE_SECONDS` | 30 | Wait for initial output or session creation |
+| `STREAM_EVENT_TIMEOUT_MS` | 120000 | Stream stall watchdog |
+| `NVERIFY_MAX_ROUNDS` | 5 | Max verify rounds per task before stop and diagnose |
 
 #### 4.2 State Persistence (`STATE.md`)
-
-- Single task state directory: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`.
-- No state files outside this directory (no `state*.yaml` or `.bak`). Questions, lookups, and clear one-off operations do not create or update task state.
-- `HERMES_CONTROL` values: `unattended-auto` | `interactive` (default) | `human`. Only `unattended-auto` bypasses the push gate.
+- One task state directory: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`, from the template `~/.local/state/templates/STATE-template.md`.
+- No state files elsewhere (no `state*.yaml`, no `.bak`). Questions, lookups, and one-off operations neither create nor update task state.
 
 #### 4.3 File Governance
-
-- Scripts go to `scripts/` using `kebab-case`. Ad-hoc names (`tmp_*.md`, `new-final.*`) forbidden.
-- Modify documents in-place. Squashing occurs prior to human-approved push.
-- For maintained documents not tracked by Git, preserve `Doc-ID`, `Version` (SemVer), and `Updated-UTC` metadata inline or in an existing sidecar when inline metadata is unsuitable. Bump an in-file version at most once per session/day; read-only work never bumps it.
-- Repoint symlinks in place with `ln -sfn`; do not create backup copies of symlinks.
+- Scripts go to `scripts/` in `kebab-case`; ad-hoc names (`tmp_*.md`, `new-final.*`) are forbidden.
+- Modify documents in place; squash before the human-approved push.
+- Maintained documents not tracked by git keep `Doc-ID`, `Version` (SemVer), and `Updated-UTC` inline or in an existing sidecar. Bump an in-file version at most once per session/day; read-only work never bumps it.
+- Re-point symlinks with `ln -sfn`; no backup copies of symlinks.
 
 ### 5. Gates, Blockers & Refusals
 
-#### 5.1 Hard Blockers (`BLOCKED: <reason>`)
-
+#### 5.1 Hard Blockers
 - Unapproved gate breach (data schema, external API writes, irreversible deletes).
-- 2 unsuccessful fixes for the same required check.
-- 2 consecutive setup turns without advancing root cause in `## Findings`.
+- 2 unsuccessful fixes for the same required check with no new evidence after the §2.3 diagnosis.
+- 2 consecutive setup turns without advancing the root cause in `## Findings`.
 - Dispatch failure (crash, empty response, silence timeout).
-- Missing critical data: `BLOCKED: <missing required information>`.
+- Missing critical data.
 
-#### 5.2 Done Criteria Checklist
+Every blocker uses one format: `BLOCKED: <reason + needed auth or info>`.
 
-A task CANNOT be marked done if:
-
-- Any step in the plan or todo list is incomplete/blocked.
-- Checks required by §1.4 failed or were not run; skipped optional checks are not a blocker.
-- Unexplained uncommitted changes exist outside planned scope.
-- Unresolved items exist in `STATE.md` under `Not done:` (a §5.3 refusal carve-out is a permanent exclusion, not unresolved).
+#### 5.2 Done Criteria
+A task is not done while:
+- any plan or todo step is incomplete or blocked;
+- checks required by §1.4 failed or were not run (skipped optional checks do not block);
+- unexplained uncommitted changes exist outside planned scope;
+- `STATE.md` `Not done:` has unresolved items (a §5.3 carve-out is a permanent exclusion, not unresolved).
 
 #### 5.3 Partial Refusal Handling
-
-- For mixed tasks (allowed + disallowed subtasks), never reject the whole task. Refusal scope = the named subtask only; blanket hedging ("cannot promise to help with anything") forbidden.
-- Classify subtasks based on factual evidence (diffs, terms, security lines).
-- Carve out only policy-disallowed work: record the reason in an existing task's `## Status` / `Not done:` line, or directly in the reply when no state is needed. Continue allowed subtasks within their own gates. Missing authorization or facts remain pending blockers, not permanent refusals.
-- Do not ask confirmation menus outside gates; maintain bias-to-act on allowed components. For a challenged refusal, inspect the disputed evidence and seek new evidence only when needed to settle it.
+- Mixed tasks (allowed + disallowed subtasks): never reject the whole task. Refusal scope is the named subtask only; no blanket hedging.
+- Classify subtasks on factual evidence (diffs, terms, security lines).
+- Carve out only policy-disallowed work: record the reason in an existing task's `## Status` / `Not done:` line, or in the reply without task state. Continue allowed subtasks within their own gates. Missing authorization or facts are pending blockers, not refusals.
+- No confirmation menus outside gates. For a challenged refusal, inspect the disputed evidence and seek new evidence only when needed to settle it.

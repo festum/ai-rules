@@ -13,7 +13,7 @@ Tested rules, not a template: each one replaces a failure seen in daily multi-ag
 | `system/rules.md` | Execution-Layer Rules, 10 sections, read by every coding agent |
 | `system/sticky_rules.md` | Hard rules for OMP (`~/.omp/agent/RULES.md`) |
 | `system/hermes.md` | Hermes contract (`~/.hermes/SOUL.md`), self-contained |
-| `system/templates/STATE.md` | STATE.md template, linked to `~/.ai-rules/STATE-template.md`, per rules.md §8.6 |
+| `system/templates/STATE.md` | STATE.md template, linked to `~/.local/state/templates/STATE-template.md`, per rules.md §8.6 |
 | `skills/<name>/SKILL.md` | One folder per skill |
 | `scripts/setup.sh` | Links rules and skills into each tool's native paths, syncs external packs |
 | `~/.ai-rules.local.md` | Private overlay: read as a second file, never merged, wins on conflict |
