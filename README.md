@@ -87,6 +87,7 @@ Edit a skill in this repo and existing links pick it up. A new skill folder need
 | `omp` | Dispatch the headless executor with required checks and conditional same-session follow-ups (Hermes/OpenClaw only) |
 | `voice` | Shape every generated or edited prose output |
 | `humanizer-ref` | Reference-register documents: CVs, API docs, specs, changelogs, READMEs |
+| `blog` | Blog workflows; `/blog write` turns a session's back-and-forth into a publishable markdown article: asks angle and audience, proposes titles and tags, runs fact-check and humanizer, never publishes |
 | `fact-check` | Verify an article's factual claims against inspected evidence before publishing; runs before the humanizers, re-checks claims they touched |
 | `humanizer-zh` | Edit Chinese prose: cut filler, repetition, and templated phrasing while keeping facts and the author's voice |
 | `snapshot` | Cited, incremental project knowledge snapshot (arch, facts, defects, history, plan, conflicts); manual sync at most hourly, ask mode for snapshot-only Q&A, read mode for other skills |
