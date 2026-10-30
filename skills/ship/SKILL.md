@@ -46,20 +46,20 @@ Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to 
   (Do not proceed until all three pass.)
 - At stage end update STATE.md: `## Status` and `## Verification` (one line each) and append one line to `log.md`.
 
-### 3. Human confirmation, push and PR creation
-- Hand the results and state (three lines: Done / Not done / Next) to the human for final confirmation. Never push before the human explicitly says "push" (push gate: `git-commit` §3); before that, commits follow the `git-commit` mode rule (checkpoints allowed in auto mode).
+### 3. Push and PR creation (or direct merge)
+- Push follows the gate in `git-commit` §3. Under `unattended-auto`, continue after verify. Otherwise hand the results to the human (Done / Not done / Next) and wait for "push", which also covers creating the PR. Commits before that follow the `git-commit` mode rule (checkpoints allowed in auto mode).
 - After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, review base changes for reusable code and spec changes; rerun only checks invalidated by that merge, then squash unpushed work into one commit.
-- Create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
+- When `git-commit` §5 allows a PR-free direct merge, merge per that section instead, then skip the PR and step 4. Otherwise create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
 - After the PR exists: put the URL in STATE.md `## Sessions` and update `## Status`.
 
 ### 4. Review, CI and Dev deploy loop
-Loop: state -> collect unresolved threads -> judge -> fix locally -> lint/tests -> draft replies -> human confirmation -> commit/push -> wait CI -> reply per thread -> deploy Dev -> repeat.
-Stop conditions (both hold): no unresolved threads (including new replies from the reviewer on answered threads) and `reviewDecision` = `APPROVED`. On design disagreement, or about 3 fix rounds with CI still failing, pause and ask the human.
+Loop: state -> collect unresolved threads -> judge -> fix locally -> lint/tests -> draft replies -> human approval of replies -> commit/push -> wait CI -> reply per thread -> deploy Dev -> repeat.
+Stop conditions (both hold): no unresolved threads (including new replies from the reviewer on answered threads) and `reviewDecision` = `APPROVED`. On design disagreement, pause and ask the human. Two unsuccessful fix rounds for the same failure → backtrack and switch approach (`rules.md` §6); ask the human only when every remaining path needs external input or 3 approaches failed.
 Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL and unresolved thread count; pause points (waiting on human approval, etc.) write Done / Not done / Next under `## Status`.
 
 - State:
   - With a ticket: reload the Jira ticket for updates.
-  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` and `gh pr checks`; separate approval-gate jobs (change-record / sign-off, always red until approved) from real failures; the former is not a CI failure. Failure logs: `gh run view <run-id> --log-failed`.
+  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` and `gh pr checks`; separate approval-gate jobs (change-record / sign-off, always red until approved) from real failures; the former is not a CI failure: it waits for the human approver, so never fix it, comment on it, or retrigger it. Failure logs: `gh run view <run-id> --log-failed`.
 - Collect unresolved threads:
   - `gh api` reads inline and conversation comments; GraphQL for thread state:
     ```bash
@@ -82,17 +82,17 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
 - Local fixes:
   - Fix with `edit`, reusing existing logic; on conflict merge the base branch per `git-commit` and re-evaluate.
   - Add tests for changed executable behavior; for changed external integrations, include raw-payload HTTP tests with representative real payload shapes. Prose-only fixes need no unrelated tests. Fix real CI failures (lint / types / tests / build) in the same round; never weaken tests to go green.
-  - Run affected checks for behavior fixes; at delivery satisfy repo-required CI-equivalent checks using valid evidence for unchanged code. Stop after two unsuccessful fixes for the same failure; no automatic extra clean round. Review `git diff` for noise, defensive handling, and contract/spec consistency.
-- Draft replies and wait for the human (hard gate):
+  - Run affected checks for behavior fixes; at delivery satisfy repo-required CI-equivalent checks using valid evidence for unchanged code. After two unsuccessful fixes for the same failure, backtrack and switch approach (`rules.md` §6); no automatic extra clean round. Review `git diff` for noise, defensive handling, and contract/spec consistency.
+- Draft replies and wait for the human (hard gate, `unattended-auto` included):
   1. Rescan unresolved threads with `gh`; confirm every expected fix is handled with nothing missed.
   2. List the numbered table `# | Thread | Decision | Local change | Draft reply` plus this round's CI/conflict fix summary.
-  3. Report state in three lines: Done / Not done / Next.
-  4. Before the human approves the replies and says "push": no commit, no push, no comment. The push gate is `git-commit` §3; replies and comments still wait for the human.
-- After approval:
+  3. When pausing for the human, report state in three lines: Done / Not done / Next.
+  4. Before the human approves the drafted replies: no PR comment or reply, ever. Commit and push follow the push gate (`git-commit` §3); replies never do.
+- After the push gate opens:
   1. Per `git-commit`, commit (stage only this round's changes) and push.
   2. Wait only for real CI checks (poll `statusCheckRollup` or a named check). Never `gh pr checks --watch`: it hangs on approval-gate jobs. A real check failure goes back to local fix and re-ask.
-  3. After CI green, reply per thread via `gh` (inline reply / GraphQL `addPullRequestReviewThreadReply`).
-  4. Deploy to Dev through the repo's existing workflow/script automatically (no extra ask; ask only when the workflow is unknown), report the result, then return to the loop start.
+  3. After CI green, and only if the human approved the drafts, reply per thread via `gh` (inline reply / GraphQL `addPullRequestReviewThreadReply`).
+  4. Deploy to Dev through the repo's existing workflow/script automatically (the repo's own pipeline, covered by the push authorization; ask only when the workflow is unknown), report the result, then return to the loop start.
 - Reply rules:
   - Reply only with 100%-verified facts; pending items say "checking the producer repo"; never overpromise or declare done early.
   - Reply once per thread and cover every point; answered threads never get new comments, only edits to the existing reply, unless the reviewer replied again.
@@ -100,5 +100,6 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
   - Reject / not applying: one-sentence conclusion; mark judgment with `IMO` / `I think`; add one reason when needed; end with `WDYT?` only when truly open (see `voice` PR review replies).
   - Never Chinese, apology filler, commit/SHA, or repeated info. Use the `voice` skill for English replies (`voice` includes humanizer); `voice` is SSOT for reply wording, this doc keeps publish and workflow.
   - Publish only via `gh`, never MCP or the web UI; never mark threads resolved yourself.
-- Never force-push a shared PR branch; never widen PR scope. Nothing to fix and no unresolved threads: report state and keep watching until Approved (or ask the human whether to nudge the reviewer).
-- Merge the PR only on the human's explicit go-ahead, and only by whoever holds merge authority (Hermes, or the human when Hermes is absent); prefer Squash and merge (`git-commit` skill §5).
+- Never force-push a shared PR branch; never widen PR scope. Nothing to fix and no unresolved threads: report state and stop; resume on the next run.
+- PR hygiene: never approve a PR, comment to satisfy, trigger, or nudge an approval gate or reviewer, or edit the PR title, description, or template fields after creation (sign-off fields belong to the approver). The only PR comments are the human-approved per-thread replies; the approval-gate job is the human approver's.
+- Merge per `git-commit` §5 (merge authority, go-ahead or `unattended-auto`, Squash and merge).

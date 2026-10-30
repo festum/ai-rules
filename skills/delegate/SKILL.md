@@ -72,8 +72,8 @@ Read-only stage detection → short plan (which stage, which files this run touc
 
 ## Hard rules
 
-- Never skip a stage because the user wants speed.
-- Blocking dependencies → ask with options, never decide to wait.
+- Do not skip a stage on a vague wish for speed; a clear direct command overrides stage ceremony (`rules.md` §1).
+- Blocking dependencies → report `BLOCKED: <reason + needed auth or info>` with the options, never decide to wait.
 - A stage is done only when its artifacts exist (plan file `plan-v<N>.md`, plus the review round log and verification notes in `STATE.md`).
 
 ## Workflow
@@ -139,6 +139,7 @@ When it finishes, come back and run: /delegate
 
 - Inspect executor changes and concrete check evidence. Continue the same session only for unresolved required work/checks; do not start a verify loop merely because the first turn ended.
 - For gap rounds the executor runs against the `v<N+1>` gap plan.
+- `agent -p` is the Cursor CLI, not Claude's `agent` subagent tool.
 - omp liveness rules are in the `omp` skill. Executors must not push, must not merge PRs, and must not open PRs. Push stays with the controller (push gate: `git-commit` §3; Stage 5).
 - Session continuity: one omp session per task. Before hand-off read `STATE.md ## Sessions`; if this task already has a session, resume it (`omp -p -r <id> …`) instead of starting a fresh session (see the `omp` skill).
 - Add `<TICKET>` to the come-back command only when it will run from a different session or directory.
@@ -153,16 +154,16 @@ When it finishes, come back and run: /delegate
    - For changed external integrations: Truth Tables, unknown-enum fallback, and raw-payload HTTP tests present. For all changes: no debug noise; relevant defensive checks present.
    - During fixes, run checks for affected behavior/risk. At delivery, satisfy repository-required CI-equivalent lint/tests and acceptance criteria; reuse valid evidence for unchanged code. Rerun on the host only for environment differences, incomplete evidence, or remaining material risk. No extra unchanged CLEAN round.
    - If the base moved, check new base code for reusable helpers or spec changes.
-4. When the change needs runtime proof (API behavior, messaging, migrations), deploy to Dev with the repo's existing deploy workflow and check logs, endpoints, and monitoring against the acceptance criteria.
+4. When the change needs runtime proof (API behavior, messaging, migrations), deploy to Dev with the repo's existing deploy workflow and check logs, endpoints, and monitoring against the acceptance criteria. If the workflow needs a pushed branch, defer this to Stage 5 step 3 and note it as pending in `STATE.md` `## Verification`.
 5. Gaps found → record each in `STATE.md` `## Verification`, write `v<N+1>` containing only the delta (findings, corrective tasks, pointer to `v<N>`), repeat Stage 2's dual review, then Stage 3 with `v<N+1>` as the executor's plan.
 6. No gaps → `CLEAN`; continue with Stage 5 (no PR yet) or the push + reply part of Stage 6 (PR open).
-7. Lead the report with the verdict in prose (append `ISSUES: <list>` only when gaps remain; no trailing `CLEAN`), then Done / Not done / Next.
+7. Lead the report with the verdict in prose (append `ISSUES: <list>` only when gaps remain; no trailing `CLEAN`); add Done / Not done / Next only when pausing for the human.
 
 ### Stage 5 — Deliver
 
-1. Report Done / Not done / Next and wait for the human to say "push" (push gate: `git-commit` §3). Never commit or push before that.
-2. After the push gate opens: follow `git-commit` (merge the base, review what changed, rerun invalidated required checks, squash into one commit), push, then open the PR with `open-pr`.
-3. Wait for the real checks; failures go to Stage 6. Green → auto-deploy to Dev with the repo's existing deploy workflow, report the result.
+1. Push follows the gate in `git-commit` §3. Under `unattended-auto`, go straight to step 2 after verify. Otherwise report (Done / Not done / Next) and wait for the human to say "push", which also covers opening the PR. Before the gate opens, do not push; commits follow the `git-commit` mode rule.
+2. After the push gate opens: follow `git-commit` (merge the base, review what changed, rerun invalidated required checks, squash into one commit). When `git-commit` §5 allows a PR-free direct merge, merge and push per that section, clean up, and stop; otherwise push and open the PR with `open-pr`.
+3. Wait for the real checks; failures go to Stage 6. Green → auto-deploy to Dev with the repo's existing deploy workflow (the repo's own pipeline, covered by the push authorization), report the result.
 
 ### Stage 6 — PR loop
 
@@ -170,9 +171,9 @@ Follow `ship` §4 for collecting threads, judging comments (accept / partial / r
 
 1. Collect unreplied threads and failing real checks. Put product/design questions (`ask`) to the user.
 2. Record every accepted item and real CI failure as a gap in `STATE.md` `## Verification` → write `v<N+1>` → Stage 2 review → Stage 3 hand-off with `v<N+1>` as the executor's plan.
-3. Next run, after the executor: Stage 4 verify. Then draft numbered replies (`# | Thread | Decision | Change | Draft reply`) and wait for "push" (push gate: `git-commit` §3; replies stay gated).
+3. Next run, after the executor: Stage 4 verify. Then draft numbered replies (`# | Thread | Decision | Change | Draft reply`) and wait for the human to approve the replies (push follows `git-commit` §3; replies never auto-post, `unattended-auto` included).
 4. After the push gate opens: `git-commit` → push → wait for the real checks → reply once per thread via `gh` → auto-deploy to Dev → back to step 1.
-5. Never auto-resolve threads. Stop when no unreplied threads remain and `reviewDecision` is `APPROVED`. Pause on design forks or after ~3 failed fix → CI rounds.
+5. Never auto-resolve threads; PR hygiene per `ship` §4 (no approvals, no gate-nudging comments, no description edits). Stop when no unreplied threads remain and `reviewDecision` is `APPROVED`. Pause on design forks. Two unsuccessful fix rounds for the same failure → new plan with a different approach (`rules.md` §6); pause only when every remaining path needs external input or 3 approaches failed.
 
 ## Related skills (if installed)
 

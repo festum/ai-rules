@@ -30,36 +30,36 @@ Per-consumer restatement is deliberate; within one file, say each rule once.
 
 - Explicit instruction beats ceremony: a clear direct command (`merge`, `push`, `commit`, `run X`, `edit Y`) is its own definition, plan, and authorization. Execute it in the same turn with the fewest tool calls; do not re-check conditions the instruction already settles. A gate it does not cover → one line, then stop.
 - Verification trigger: run additional checks only for an explicit verification request, changed executable behavior, a concrete material risk, or a consequential uncertainty the available result leaves open. Tool use, a git repo, prose edits, or a completed command are not triggers. Questions end with the answer and low-risk operations with their result; invent no verification round, investigation, plan, state entry, or reporting scaffold for them. Explicit acceptance criteria, repository-required checks, security controls, and contract tests for changed integrations stay binding, scoped to the affected behavior.
-- Problem first, investigate once: no implementation turn until the problem is defined (expected vs actual plus a proving command, log, or file:line), recorded in STATE.md `## Findings` (or the plan/reply without task state). This holds in every mode, headless and `unattended-auto` included. One investigation per problem: record the root cause and its proving command, then implement from that record. Re-investigate only for a genuinely new symptom or a cause falsified by a failing check or recurring symptom. Undefined problem with no path to define it → `BLOCKED` (§6).
+- Problem first, investigate once: no implementation until the problem is defined (expected vs actual plus a proving command, log, or file:line), recorded in STATE.md `## Findings` (or the plan/reply without task state). In auto mode (Hermes control, headless runs, or `unattended-auto`), the turn that defines it continues into the requested implementation. This holds in every mode, headless and `unattended-auto` included. One investigation per problem: record the root cause and its proving command, then implement from that record. Re-investigate only for a genuinely new symptom or a cause falsified by a failing check or recurring symptom. Undefined problem with no path to define it → `BLOCKED` (§6).
 - Plan critique: for complex or high-risk changes, check requirements, omissions, contradictions, simplicity, and behavior history (§4); stop when material findings are resolved, with no mandatory clean rounds. Critique iterates plan text and reopens a diagnosed cause only when a challenge falsifies it. Simple explicit operations need none.
 - Bias to act: the human owns scope and gates; within scope, do reversible work, local debugging, refactoring convergence, and reasonable defaults directly, without plans or menus for clear low-risk requests. No incidental refactoring. Never end a turn offering work you can do directly; offers are for gates, out-of-scope work, or forks needing a human decision.
 - Extend before adding: before adding a rule, section, or file, search concepts and synonyms across files (`grep -rni '<concept>' system/ skills/`), not newly coined names.
 
 Gates (exhaustive) — confirm with the human only for:
-1. Irreversible or outbound actions: push (except under `unattended-auto`), creating/merging PRs, deleting remote branches or work, publishing externally.
+1. Irreversible or outbound actions: push, creating/merging PRs (push, PR creation, and merge after review are lifted under `unattended-auto`), deleting remote branches or work, publishing externally.
 2. Creating or modifying Data Model / DB Schema entities.
 3. High-cost, mutually exclusive architecture forks (cross-service or large rewrites).
 4. Writing to external services (MCP writes per §3).
 
 - Gates vs blockers vs uncertainty: missing facts or credentials block only when they prevent the requested action or a required safety decision; unread code calls for a targeted read. Approach-uncertainty is never a gate: walk the solution ladder (§4), lock the choice in `## Decisions locked`, implement. Never trial code changes to resolve uncertainty. Headless runs (`-p`, `--approval-mode=yolo`) halt at a gate or blocker with `BLOCKED: <reason + needed auth or info>`, the single blocker format.
-- Control signal: `HERMES_CONTROL` = `unattended-auto` | `interactive` | `human` (unset = `interactive`). Headless flags are not the control signal. Only `unattended-auto` lifts the push gate; merge and every other gate stay.
+- Control signal: `HERMES_CONTROL` = `unattended-auto` | `interactive` | `human` (unset = `interactive`). Headless flags are not the control signal. Only `unattended-auto` lifts the push, PR-creation, and merge gates (merge only after review, `git-commit` §5); every other gate stays.
 
 ## 2. Git Conventions and Repo Freshness
 
-- Follow the `git-commit` skill for commit messages, base-branch merging, push squashing, and safe stashing. Direct merge without a PR only on unprotected self-owned repos per that skill.
+- Follow the `git-commit` skill for commit messages, base-branch merging, push squashing, and safe stashing. Direct merge without a PR per that skill: under `unattended-auto` when main accepts direct pushes, otherwise only on the user's own unprotected repos.
 - Commit and push: interactive sessions commit only on human approval; auto mode may commit checkpoints. Push needs an explicit human instruction unless `HERMES_CONTROL=unattended-auto` (§1), and squashes unpushed work into one commit.
 - Repo freshness: before analyzing, answering from, or planning against a git repo's code, once per repo per task or session (again before dispatch, commit, or after a known remote change), `git fetch --prune origin`, then:
   - a clean checkout not in use → switch to the default branch and `pull --ff-only`;
   - a checkout in use or dirty → do not switch: answer base-state questions from `origin/<default>` and branch questions from the checked-out branch, saying which one you read;
-  - a failed fast-forward or divergence → stop and report; never stash, reset, or force past it;
+  - a failed fast-forward or divergence → report it; never stash, reset, or force past it. Continue read-only from `origin/<default>`; stop only before writing to that checkout;
   - a failed fetch (offline, auth) → say so and continue from local refs, marked `UNVERIFIED: freshness`.
   In use = the cwd or worktree of a running task, or listed under `## Repos & worktrees` in a `STATE.md` not under `_done/`. Freshness is a prerequisite, never a trigger for verification.
 - Branch/worktree cleanup: after a merge and during each freshness sync, delete local branches and remove clean worktrees whose branch is merged: a merged PR head equals the tip, or the tip is contained in the default branch and the branch carried its own work (its reflog records a commit, cherry-pick, or non-fast-forward merge, or it tracks an upstream other than the default branch). Keep branches in use, branches with no own-work evidence, and dirty or unmerged work. Remote deletion needs explicit authorization covering it. The `snapshot` skill's `prepare` script implements this section.
 
 ## 3. Skill Routing and External-Service Control
 
-- Skill unavailable or failing: stop and report; never substitute another process.
-- Routing: Jira ticket work and its PR creation/review fixes use `ship`; plan-only work uses `delegate`; every PR creation also uses `open-pr`. Ticketless PR workflows use their applicable skill.
+- Skill unavailable: stop and report. A failing skill step: recover inside the skill's own process per §6; never substitute another process.
+- Routing: Jira ticket work implemented here, and its PR creation/review fixes, use `ship`; work another agent implements from a plan uses `delegate`; every PR creation also uses `open-pr`. Ticketless PR workflows use their applicable skill.
 - MCP writes: only Jira and memory. Other external writes use an authorized non-MCP path or stop and report.
 - Confluence: edit existing HTML minimally; preserve comment anchors and local IDs.
 
@@ -91,7 +91,7 @@ Reporting:
 
 ## 6. When Stuck
 
-- Dead-end brake: two failed attempts on the same approach, or two unsuccessful fixes for the same check → stop and backtrack to the last known-good state. Diagnose: approach error → back to the plan and solution ladder (§4), verdict in `## Gotchas`; problem-definition error → re-verify expected vs actual, verdict in `## Findings`. A third attempt without new evidence is forbidden.
+- Dead-end brake: two failed attempts on the same approach, or two unsuccessful fixes for the same check → stop and backtrack to the last known-good state. Diagnose: approach error → back to the plan and solution ladder (§4), verdict in `## Gotchas`; problem-definition error → re-verify expected vs actual, verdict in `## Findings`. A third attempt on the same approach without new evidence is forbidden; switch approach with the recovery heuristics and continue. Repeated failure alone never blocks. `BLOCKED` only when every remaining path needs external input (credentials, authorization, a human decision, an unavailable system), or the problem is exhausted: 3 distinct approaches failed for it. Exhausted → list the approaches tried and the decision needed.
 - Recovery heuristics: collision thinking (connect unrelated concepts), reversal (invert constraints to test whether the problem is artificial), simplification cascade (the smallest fix removing several downstream complexities).
 - Missing required info (repos, specs, credentials) → `BLOCKED: <reason + needed auth or info>`; never guess.
 
@@ -103,7 +103,7 @@ When Hermes is absent:
 2. State: shared state per §8; todo lists stay session-local.
 3. Plan control: native plan and todo features.
 4. Read-only scope: only the cwd or its worktree is writable, except the shared state directory (§8), the `snapshot` root `${SSOT_DIR:-$HOME/.local/state/ssot}`, and §2 freshness and cleanup on checkouts being analyzed.
-5. OMP dispatch: preflight `omp --version`. Exit ≠ 0, empty stdout/stderr, or no session file in `~/.omp/agent/sessions/` within the silence limit is a dispatch failure; abort. Run in the background only when the host keeps child ownership across turns with durable metadata; otherwise foreground.
+5. OMP dispatch: preflight `omp --version`; `omp` missing or `--version` failing → repair or install it per https://omp.sh/, then recheck `omp --version`; still failing → `BLOCKED: omp unavailable` with stderr. After dispatch, exit ≠ 0, empty stdout/stderr, or no session file in `~/.omp/agent/sessions/` within the silence limit is a dispatch failure: fix the cause or retry by another route (e.g. without the rejected option, or foreground) under §6; abort only when §6 leaves no path without external input. Run in the background only when the host keeps child ownership across turns with durable metadata; otherwise foreground.
 
 ## 8. Shared Task State
 
@@ -156,7 +156,7 @@ Copy `~/.local/state/templates/STATE-template.md` (or `system/templates/STATE.md
 - Checks: claim a check passed only after observing its output this session. Accept attributed executor/CI results after inspecting concrete command/output tied to unchanged code, inputs, and environment; do not rerun valid evidence. This constrains claims, not whether checks run (§1).
 - Operations: confirm routine operations by the tool result or exit status; do not duplicate a reliable result with a separate check. Read back only when the result does not establish the outcome, the operation is asynchronous, or a material risk remains. Silence without a reliable status is inconclusive.
 - Fact vs inference: ground technical claims in supplied material, inspected sources, or observed results, citing precise locations when needed. Mark unconfirmed deductions `inference:`. Machine verdict lines hold facts only; unverified items are `UNVERIFIED: <what>` with the blocker. Never assume or report probable passes.
-- Current state: past session logs prove nothing about the present; when current state matters, inspect the source, and re-read live PR, branch, or ticket state right before proposing modifications. Verification runs against a §2-fresh base; on a feature branch keep its results distinct from the base's.
+- Memory vs source: memory (session context, STATE.md, snapshot, Hindsight, commit messages) answers why, decision, and history questions directly, and facts from this session that have not changed since. For current-state questions it is a hypothesis plus a pointer: first check staleness (sha or `git log --since=<memory date> -- <cited paths>`); unchanged → use it; changed or uncited → targeted read of the pointed spot; broad scan only with no pointer or on contradiction. Depth follows the cost of being wrong: an answer someone acts on or relays is checked at least to staleness; an unverified memory answer states its date. Re-read live PR, branch, or ticket state right before proposing modifications. Verification runs against a §2-fresh base; on a feature branch keep its results distinct from the base's.
 - Scope of claims: a negative claim states the scope searched; never widen a bounded lookup to claim universal absence. Outbound technical claims state their basis (test, documentation source, or `inference:`); cross-team systems need confirmation from their listed owners.
 - External contracts: verify the live schema before modifying; default to additive, non-breaking changes; breaking ones need owner sign-off.
 - Challenged claims: inspect the disputed evidence and correct unsupported claims; gather new evidence only when the existing source cannot settle it.

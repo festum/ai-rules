@@ -58,7 +58,7 @@ Push is a different gate and reads the control signal, never the tool flags:
 - `interactive` / `human`: pushing waits for the explicit human "push".
 - Cross-check the STATE.md header `control:`; it must match. Disagreement, or no positive `unattended-auto` evidence → treat as `interactive` (conservative).
 - Every push first squashes all not-yet-pushed work into one commit (§4), so the branch never accumulates garbage commits.
-- Merge authority (§5) is never lifted by the control signal.
+- Merge authority (§5) stays with the controller (Hermes, or the human when Hermes is absent). `unattended-auto` authorizes it after review; executors never merge.
 
 ## 4. Squash on push
 
@@ -66,14 +66,15 @@ Every push: first squash ALL not-yet-pushed work into exactly one commit (messag
 
 ## 5. Merging a PR
 
-Merge authority belongs to Hermes only (the human when Hermes is absent). Executors (OMP, `claude`, `opencode`, the `agent` tool) never merge and never enable auto-merge: on reaching a mergeable PR, stop and emit `BLOCKED: <reason>` plus the authorization needed, and let Hermes act.
+Merge authority belongs to Hermes only (the human when Hermes is absent). Executors (OMP, `claude`, `opencode`, the Cursor `agent` CLI) never merge and never enable auto-merge: on reaching a mergeable PR, stop and emit `BLOCKED: <reason>` plus the authorization needed, and let Hermes act.
 
-- PR-free direct merge (no PR ceremony): when the project is the user's own private repo, main has no branch protection or accepts direct pushes (`gh api repos/<owner>/<repo>/branches/main/protection` returning 404 = unprotected; any other error, including 403 for missing admin rights, means treat it as protected until verified otherwise), and the last 5 commits on main show at least one direct push (`git log -n5 --pretty=%s`: subjects ending in `(#123)` or starting `Merge pull request` came from PRs, anything else is typically a direct push), skip PR creation and merge the branch straight into main and push. Not for ticketed (Jira) work — the ship skill's PR flow still applies there. This removes the ceremony only: the human's go-ahead, the Hermes-only merge authority, and the branch cleanup below all still apply.
-- Hermes merges, or enables auto-merge, only after an explicit human go-ahead. Enabling auto-merge is still that same authorization, not a shortcut past it.
+- PR-free direct merge (no PR ceremony): when main has no branch protection or accepts direct pushes (`gh api repos/<owner>/<repo>/branches/main/protection` returning 404 = unprotected; any other error, including 403 for missing admin rights, means treat it as protected until verified otherwise), and the last 5 commits on main show at least one direct push (`git log -n5 --pretty=%s`: subjects ending in `(#123)` or starting `Merge pull request` came from PRs, anything else is typically a direct push), skip PR creation and merge the branch straight into main and push. Under `unattended-auto`, Hermes does this after verify and its own diff review, with no human go-ahead, for ticketed work too. Interactive / human: only for the user's own private repo, on the human's instruction. Protected main or no recent direct push → PR flow. The Hermes-only merge authority and the branch cleanup below still apply.
+- Outside `unattended-auto`, Hermes merges, or enables auto-merge, only after an explicit human go-ahead. Enabling auto-merge is still that same authorization, not a shortcut past it.
 - Interactive: merge only on the human's instruction.
-- Auto mode (Hermes only): same gate. Arming is not merging: prefer `gh pr merge <pr> --auto --squash`, then `gh pr review <pr> --approve`, so the merge fires on its own once the repo's required checks and reviews pass. Never run a manual merge (`gh pr merge <pr> --squash`, the web UI) that lands the PR immediately and skips that gate.
+- Auto mode (Hermes only): under `unattended-auto` no human go-ahead is needed, otherwise the same gate. Arming is not merging: prefer `gh pr merge <pr> --auto --squash`, so the merge fires on its own once the repo's required checks and reviews pass. Never run a manual merge (`gh pr merge <pr> --squash`, the web UI) that lands the PR immediately and skips that gate.
+- Never approve a PR (own or anyone's), post comments to satisfy or trigger an approval gate, or edit approval / sign-off fields: approval belongs to the human approver. Arming waits for their `APPROVED`; never produce it.
 - Preconditions before arming: real CI checks green (approval-gate jobs are exempt, they stay red until a human signs off), no unresolved review threads, `reviewDecision` = `APPROVED`.
-- Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. The merge still needs the human's go-ahead in either case, so never work around it.
+- Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. Never work around either; report `BLOCKED:` instead.
 - When the merge lands on GitHub, prefer **Squash and merge** so the PR lands as one commit with a message per §1. Use a merge commit only when the human explicitly asks.
 - After a merge, and during repo freshness (`rules.md` §2), remove only merged local branches and clean worktrees whose branch is merged; preserve branches in use and dirty or unmerged work. Remote deletion requires explicit authorization covering that deletion. A merge instruction alone does not authorize deleting remote branches, and finishing local work alone does not authorize any branch/worktree deletion.
 
