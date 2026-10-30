@@ -5,61 +5,61 @@ user-invocable: true
 allowed-tools: read, write, edit, grep, bash, github, todo, ask, open-pr, git-commit, omp
 ---
 
-Read the Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to complete the task design, implementation, PR creation and review fixes. Ticketless PRs (dependabot, infra) start at step 4 and skip every Jira step.
+Read Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to complete task design, implementation, PR creation, review fixes. Ticketless PRs (dependabot, infra): start at step 4, skip every Jira step.
 
 ## Priorities and principles
-1. Weight: review comments > Jira ticket > PRD. PRD may be stale; on conflict decide by Jira + comments + existing implementation.
+1. Weight: review comments > Jira ticket > PRD. PRD may be stale; conflict → decide by Jira + comments + existing implementation.
 2. Cross-service contract / enum mapping:
-   - Wire DTOs differ from domain models. Never cast raw transport (Wire Payload) strings straight into enums; isolate the wire protocol from internal domain logic through a dedicated mapper layer.
-   - Verifying producer code always includes the serialization definitions (annotations, field names, kebab-case / snake_case conversions, enum custom text). Never guess transport strings from producer-internal constant names.
-   - Polymorphic payloads (`type`/`kind` etc.) get a dedicated Truth Table. Never force one struct onto them.
-   - Mapping includes a fallback for unknown enum values so future producer fields cannot crash deserialization.
+   - Wire DTOs ≠ domain models. Never cast raw transport (Wire Payload) strings straight into enums; isolate wire protocol from internal domain logic via dedicated mapper layer.
+   - Verifying producer code always includes serialization definitions (annotations, field names, kebab-case / snake_case conversions, enum custom text). Never guess transport strings from producer-internal constant names.
+   - Polymorphic payloads (`type`/`kind` etc.) → dedicated Truth Table. Never force one struct onto them.
+   - Mapping includes fallback for unknown enum values; future producer fields can't crash deserialization.
 3. Raw payload HTTP tests (no pure unit interface stubs):
    - External API communication: never verify with client/interface mocks alone; they hide JSON deserialization and mapping errors.
-   - Always use an HTTP-level mock (WireMock, MSW, MockWebServer) with the real raw JSON response body from Producer/Postman/Log to test deserialization and mapping.
-4. Minimal change and convergence: prefer reusing existing logic. Before a change removes, replaces, or reverses existing behavior (in the plan and while editing), trace what that behavior was for (`git blame -w -M -L <range> <file>` for the introducing commit, `git show -s --format=%B <sha>` for the reasoning, `git log -L :<func>:<file> --no-merges` for the evolution, the linked issue, the tests that pin it) and whether it was a defect or a deliberate design, then judge the change on merit: a change that fixes a known defect, or makes the behavior measurably better, proceeds; a deliberate and correct behavior the change does not improve stays, or the change becomes additive. The ticket gives the goal, not the verdict. Record the reasoning in the plan. After every merge of the base branch, re-scan the codebase for newly reusable tools and spec changes that must be synced.
+   - Always HTTP-level mock (WireMock, MSW, MockWebServer) with real raw JSON response body from Producer/Postman/Log to test deserialization and mapping.
+4. Minimal change and convergence: prefer reusing existing logic. Before change removes, replaces, or reverses existing behavior (in plan and while editing), trace what it was for (`git blame -w -M -L <range> <file>` for introducing commit, `git show -s --format=%B <sha>` for reasoning, `git log -L :<func>:<file> --no-merges` for evolution, linked issue, pinning tests) and whether defect or deliberate design; judge on merit: fixes known defect or measurably improves behavior → proceed; deliberate correct behavior the change doesn't improve → stays, or change becomes additive. Ticket gives goal, not verdict. Reasoning → plan. After every base-branch merge, re-scan codebase for newly reusable tools and spec changes to sync.
 5. No out-of-scope changes; no unnecessary refactoring.
-6. Repeat invocations: skip completed steps (branch already made, PR already opened, never redo them), but always reload the Jira ticket and PR comments to confirm latest state.
-7. Session continuity: mid-task follow-ups (from anyone, not only the PR commenter) are answered in the current session; continue context via the runtime session (OMP `-c` / `-r`). Restart investigation only when the question is outside session context.
+6. Repeat invocations: skip completed steps (branch made, PR opened: never redo), but always reload Jira ticket and PR comments for latest state.
+7. Session continuity: mid-task follow-ups (from anyone, not only PR commenter) answered in current session; continue context via runtime session (OMP `-c` / `-r`). Restart investigation only when question is outside session context.
 
 ## Workflow
 
 ### 1. Prepare and branch
-- Read or create the shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite an existing `Scope & constraints`. Fill `repos:` on creation; a ticketless task names the branch after the T- key. Name the task's omp session after the key; record it in `## Sessions` as `<name> (<id>) (<cwd>)` when the session starts (resume by id; see the `omp` skill).
-- Reload the Jira ticket and fill any missing spec.
-- If the project has a snapshot, load it in `snapshot` read mode (`arch`, `facts`, `defects`, `conflicts`) for orientation; verify any snapshot claim the design relies on against its cited source. Never trigger a sync.
-- Locate repos: when a project map exists (a parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) check the map first and search only when the map misses; once fixed, search only inside those repos and their worktrees. Never scan the whole parent folder.
-- Team convention survey: when the target repo is a new service, or a pattern type (persistence layer, tests, migration, commit style) has fewer than 3 precedents, first collect that pattern's conventions from active same-team repos; list the "conventions to follow" with source files in the plan. Never copy a single recent precedent from the target repo; list every deviation as a human decision.
-- Use the built-in `plan` to break the task down; track state with `todo`.
-- Branch: if none exists, bring the base up to date per repo freshness (`rules.md` §2; a dirty or in-use checkout is not switched, the worktree branches from `origin/<base>`), then create the worktree branch `<ticket-id>` (the Jira ticket ID); if already on that branch, continue.
+- Read or create shared state file `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md` (key = ticket ID). Never rewrite existing `Scope & constraints`. Fill `repos:` on creation; ticketless task names branch after T- key. Name task's omp session after key; record in `## Sessions` as `<name> (<id>) (<cwd>)` when session starts (resume by id; see `omp` skill).
+- Reload Jira ticket, fill missing spec.
+- Project has snapshot → load in `snapshot` read mode (`arch`, `facts`, `defects`, `conflicts`) for orientation; verify any snapshot claim design relies on against its cited source. Never trigger sync.
+- Locate repos: project map exists (parent `CLAUDE.md` / `AGENTS.md` listing repos, uses, aliases) → check map first, search only when map misses; once fixed, search only inside those repos and worktrees. Never scan whole parent folder.
+- Team convention survey: target repo is new service, or pattern type (persistence layer, tests, migration, commit style) has < 3 precedents → first collect that pattern's conventions from active same-team repos; list "conventions to follow" with source files in plan. Never copy single recent precedent from target repo; every deviation = human decision.
+- Built-in `plan` breaks task down; `todo` tracks state.
+- Branch: none exists → bring base up to date per repo freshness (`rules.md` §2; dirty or in-use checkout not switched, worktree branches from `origin/<base>`), create worktree branch `<ticket-id>` (Jira ticket ID); already on it → continue.
 
 ### 2. Implement and verify
-- When external integration behavior changes, contract/enum alignment and raw payload tests come first:
-  1. Verify the producer repo's serialization and enum definitions; produce the Truth Table.
-  2. Build HTTP-level raw payload tests from the producer's real payload shape; write the failing test first to validate deserialization and mapping.
-  3. Complete the implementation and make the test pass.
-- Verification scope: during implementation, run checks covering changed behavior and material risks; prose-only edits and routine operations do not start a test loop. Before delivery/push, satisfy the repo's required CI-equivalent lint/tests and explicit acceptance criteria. Preserve security checks and HTTP raw-payload tests for changed integrations. Reuse valid unchanged evidence; no mandatory extra clean round or duplicate host run.
+- External integration behavior changes → contract/enum alignment and raw payload tests first:
+  1. Verify producer repo's serialization and enum definitions; produce Truth Table.
+  2. Build HTTP-level raw payload tests from producer's real payload shape; failing test first to validate deserialization and mapping.
+  3. Complete implementation, make test pass.
+- Verification scope: during implementation, checks covering changed behavior and material risks; prose-only edits and routine operations start no test loop. Before delivery/push: satisfy repo's required CI-equivalent lint/tests and explicit acceptance criteria. Preserve security checks and HTTP raw-payload tests for changed integrations. Reuse valid unchanged evidence; no mandatory extra clean round or duplicate host run.
 - Self code review (read `git diff`):
-  1. No noise: no debug prints, debug code, unrelated formatting, or unused imports.
-  2. Defensive: null/empty checks, exception handling, and boundary conditions all present.
-  3. Consistency: logic matches the Truth Table and Jira spec 100%.
-  (Do not proceed until all three pass.)
-- At stage end update STATE.md: `## Status` and `## Verification` (one line each) and append one line to `log.md`.
+  1. No noise: no debug prints, debug code, unrelated formatting, unused imports.
+  2. Defensive: null/empty checks, exception handling, boundary conditions present.
+  3. Consistency: logic matches Truth Table and Jira spec 100%.
+  (Don't proceed until all three pass.)
+- Stage end: update STATE.md `## Status` and `## Verification` (one line each), append one line to `log.md`.
 
 ### 3. Push and PR creation (or direct merge)
-- Push follows the gate in `git-commit` §3. Under `unattended-auto`, continue after verify. Otherwise hand the results to the human (Done / Not done / Next) and wait for "push", which also covers creating the PR. Commits before that follow the `git-commit` mode rule (checkpoints allowed in auto mode).
-- After push is authorized, per `git-commit`: merge the base branch and resolve conflicts in favor of this branch, review base changes for reusable code and spec changes; rerun only checks invalidated by that merge, then squash unpushed work into one commit.
-- When `git-commit` §5 allows a PR-free direct merge, merge per that section instead, then skip the PR and step 4. Otherwise create the PR via `open-pr`: title, reviewers, linked issues compliant, template used; the description is a minimal English summary only, no AI markers.
-- After the PR exists: put the URL in STATE.md `## Sessions` and update `## Status`.
+- Push follows gate in `git-commit` §3. `unattended-auto` → continue after verify. Otherwise hand results to human (Done / Not done / Next), wait for "push", which also covers creating PR. Commits before that follow `git-commit` mode rule (checkpoints allowed in auto mode).
+- Push authorized → per `git-commit`: merge base branch, resolve conflicts in favor of this branch, review base changes for reusable code and spec changes; rerun only checks invalidated by merge; squash unpushed work into one commit.
+- `git-commit` §5 allows PR-free direct merge → merge per that section, skip PR and step 4. Otherwise create PR via `open-pr`: title, reviewers, linked issues compliant, template used; description = minimal English summary only, no AI markers.
+- PR exists → URL into STATE.md `## Sessions`, update `## Status`.
 
 ### 4. Review, CI and Dev deploy loop
 Loop: state -> collect unresolved threads -> judge -> fix locally -> lint/tests -> draft replies -> human approval of replies -> commit/push -> wait CI -> reply per thread -> deploy Dev -> repeat.
-Stop conditions (both hold): no unresolved threads (including new replies from the reviewer on answered threads) and `reviewDecision` = `APPROVED`. On design disagreement, pause and ask the human. Two unsuccessful fix rounds for the same failure → backtrack and switch approach (`rules.md` §6); ask the human only when every remaining path needs external input or 3 approaches failed.
-Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL and unresolved thread count; pause points (waiting on human approval, etc.) write Done / Not done / Next under `## Status`.
+Stop conditions (both hold): no unresolved threads (including new reviewer replies on answered threads) and `reviewDecision` = `APPROVED`. Design disagreement → pause, ask human. Two unsuccessful fix rounds for same failure → backtrack, switch approach (`rules.md` §6); ask human only when every remaining path needs external input or 3 approaches failed.
+Every round: STATE.md header `status: pr-loop`; `## Status` keeps PR URL and unresolved thread count; pause points (waiting on human approval, etc.) write Done / Not done / Next under `## Status`.
 
 - State:
-  - With a ticket: reload the Jira ticket for updates.
-  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` and `gh pr checks`; separate approval-gate jobs (change-record / sign-off, always red until approved) from real failures; the former is not a CI failure: it waits for the human approver, so never fix it, comment on it, or retrigger it. Failure logs: `gh run view <run-id> --log-failed`.
+  - With ticket: reload Jira ticket for updates.
+  - `gh pr view --json number,title,state,url,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,reviews` and `gh pr checks`; separate approval-gate jobs (change-record / sign-off, red until approved) from real failures; former ≠ CI failure: waits for human approver; never fix, comment on, or retrigger it. Failure logs: `gh run view <run-id> --log-failed`.
 - Collect unresolved threads:
   - `gh api` reads inline and conversation comments; GraphQL for thread state:
     ```bash
@@ -74,32 +74,32 @@ Every round: set STATE.md header `status: pr-loop`; `## Status` keeps the PR URL
         }
       }' -F owner=... -F repo=... -F number=...
     ```
-  - To process: unresolved, and (the last commenter is not me, or I never replied). Answered threads with no new reviewer reply: skip.
-  - Check existing `todo` and `plan`; skip finished items; build the numbered list plus Truth Table: file/line, author, ask, related code.
-  - Cross-check Jira and PRD: PRD contradicting `todo` -> mark `PRD-stale`; outside Jira scope -> mark `deferred`, not in this PR.
-- Judge: classify each thread in-agent as accept / partial / reject / ask (product or design questions go to ask; do not guess). Only when the diff exceeds 400 lines, or the change touches security, payments, or external input parsing, additionally run a multi-lens review (Claude built-in `/code-review`, or read-only omp: `omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`; follow the `omp` skill for preflight and liveness). Run lenses **in parallel** (take findings only; publish nothing from them). Never use omp's implementation mode for a read-only review; it permits code writes.
+  - To process: unresolved, and (last commenter ≠ me, or I never replied). Answered threads, no new reviewer reply: skip.
+  - Check existing `todo` and `plan`; skip finished items; build numbered list + Truth Table: file/line, author, ask, related code.
+  - Cross-check Jira and PRD: PRD contradicts `todo` -> mark `PRD-stale`; outside Jira scope -> mark `deferred`, not in this PR.
+- Judge: classify each thread in-agent as accept / partial / reject / ask (product or design questions → ask; don't guess). Only when diff > 400 lines, or change touches security, payments, or external input parsing → additionally multi-lens review (Claude built-in `/code-review`, or read-only omp: `omp -p --tools=read,grep,glob --advisor --max-time=15m "<review prompt>"`; follow `omp` skill for preflight and liveness). Lenses **in parallel** (findings only; publish nothing). Never omp implementation mode for read-only review; it permits code writes.
   - Fix over argue: apply reasonable suggestions; reject only wrong or harmful ones; never silently ignore.
 - Local fixes:
-  - Fix with `edit`, reusing existing logic; on conflict merge the base branch per `git-commit` and re-evaluate.
-  - Add tests for changed executable behavior; for changed external integrations, include raw-payload HTTP tests with representative real payload shapes. Prose-only fixes need no unrelated tests. Fix real CI failures (lint / types / tests / build) in the same round; never weaken tests to go green.
-  - Run affected checks for behavior fixes; at delivery satisfy repo-required CI-equivalent checks using valid evidence for unchanged code. After two unsuccessful fixes for the same failure, backtrack and switch approach (`rules.md` §6); no automatic extra clean round. Review `git diff` for noise, defensive handling, and contract/spec consistency.
-- Draft replies and wait for the human (hard gate, `unattended-auto` included):
-  1. Rescan unresolved threads with `gh`; confirm every expected fix is handled with nothing missed.
-  2. List the numbered table `# | Thread | Decision | Local change | Draft reply` plus this round's CI/conflict fix summary.
-  3. When pausing for the human, report state in three lines: Done / Not done / Next.
-  4. Before the human approves the drafted replies: no PR comment or reply, ever. Commit and push follow the push gate (`git-commit` §3); replies never do.
-- After the push gate opens:
-  1. Per `git-commit`, commit (stage only this round's changes) and push.
-  2. Wait only for real CI checks (poll `statusCheckRollup` or a named check). Never `gh pr checks --watch`: it hangs on approval-gate jobs. A real check failure goes back to local fix and re-ask.
-  3. After CI green, and only if the human approved the drafts, reply per thread via `gh` (inline reply / GraphQL `addPullRequestReviewThreadReply`).
-  4. Deploy to Dev through the repo's existing workflow/script automatically (the repo's own pipeline, covered by the push authorization; ask only when the workflow is unknown), report the result, then return to the loop start.
+  - Fix with `edit`, reusing existing logic; conflict → merge base branch per `git-commit`, re-evaluate.
+  - Tests for changed executable behavior; changed external integrations → raw-payload HTTP tests with representative real payload shapes. Prose-only fixes: no unrelated tests. Fix real CI failures (lint / types / tests / build) same round; never weaken tests to go green.
+  - Behavior fixes → affected checks; at delivery satisfy repo-required CI-equivalent checks using valid evidence for unchanged code. Two unsuccessful fixes for same failure → backtrack, switch approach (`rules.md` §6); no automatic extra clean round. Review `git diff` for noise, defensive handling, contract/spec consistency.
+- Draft replies, wait for human (hard gate, `unattended-auto` included):
+  1. Rescan unresolved threads with `gh`; confirm every expected fix handled, nothing missed.
+  2. Numbered table `# | Thread | Decision | Local change | Draft reply` + this round's CI/conflict fix summary.
+  3. Pausing for human → state in three lines: Done / Not done / Next.
+  4. Before human approves drafted replies: no PR comment or reply, ever. Commit and push follow push gate (`git-commit` §3); replies never do.
+- After push gate opens:
+  1. Per `git-commit`, commit (stage only this round's changes), push.
+  2. Wait only for real CI checks (poll `statusCheckRollup` or named check). Never `gh pr checks --watch`: hangs on approval-gate jobs. Real check failure → back to local fix and re-ask.
+  3. CI green, and only if human approved drafts → reply per thread via `gh` (inline reply / GraphQL `addPullRequestReviewThreadReply`).
+  4. Deploy to Dev via repo's existing workflow/script automatically (repo's own pipeline, covered by push authorization; ask only when workflow unknown), report result, return to loop start.
 - Reply rules:
   - Reply only with 100%-verified facts; pending items say "checking the producer repo"; never overpromise or declare done early.
-  - Reply once per thread and cover every point; answered threads never get new comments, only edits to the existing reply, unless the reviewer replied again.
+  - One reply per thread covering every point; answered threads get no new comments, only edits to existing reply, unless reviewer replied again.
   - Accept / fixed: conclusion only, usually 1-5 English words (cap 12), e.g. `Fixed.` / `Done.` / `Out of scope.`; no mechanism, no file/line/numbers, no diff restatement.
-  - Reject / not applying: one-sentence conclusion; mark judgment with `IMO` / `I think`; add one reason when needed; end with `WDYT?` only when truly open (see `voice` PR review replies).
-  - Never Chinese, apology filler, commit/SHA, or repeated info. Use the `voice` skill for English replies (`voice` includes humanizer); `voice` is SSOT for reply wording, this doc keeps publish and workflow.
-  - Publish only via `gh`, never MCP or the web UI; never mark threads resolved yourself.
-- Never force-push a shared PR branch; never widen PR scope. Nothing to fix and no unresolved threads: report state and stop; resume on the next run.
-- PR hygiene: never approve a PR, comment to satisfy, trigger, or nudge an approval gate or reviewer, or edit the PR title, description, or template fields after creation (sign-off fields belong to the approver). The only PR comments are the human-approved per-thread replies; the approval-gate job is the human approver's.
+  - Reject / not applying: one-sentence conclusion; judgment marked `IMO` / `I think`; one reason when needed; `WDYT?` only when truly open (see `voice` PR review replies).
+  - Never Chinese, apology filler, commit/SHA, repeated info. `voice` skill for English replies (`voice` includes humanizer); `voice` = SSOT for reply wording, this doc keeps publish and workflow.
+  - Publish only via `gh`, never MCP or web UI; never mark threads resolved yourself.
+- Never force-push shared PR branch; never widen PR scope. Nothing to fix, no unresolved threads → report state, stop; resume next run.
+- PR hygiene: never approve PR, comment to satisfy, trigger, or nudge approval gate or reviewer, or edit PR title, description, or template fields after creation (sign-off fields belong to approver). Human-approved per-thread replies = the only PR comments; approval-gate job belongs to human approver.
 - Merge per `git-commit` §5 (merge authority, go-ahead or `unattended-auto`, Squash and merge).
