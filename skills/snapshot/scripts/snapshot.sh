@@ -171,7 +171,7 @@ cmd_prepare() {
 # --- deltas ---------------------------------------------------------------
 
 cmd_git_delta() {
-  local repo=${1:?repo path} cursor=${2:--} base head
+  local repo=${1:?repo path} cursor=${2:--} days=${3:-} base head since=()
   is_git "$repo"
   base=$(default_ref "$repo")
   head=$(git -C "$repo" rev-parse "$base")
@@ -181,7 +181,8 @@ cmd_git_delta() {
   if [ "$cursor" = "-" ] || ! git -C "$repo" merge-base --is-ancestor "$cursor" "$head" 2>/dev/null; then
     echo "delta=full"
     echo "## recent commits"
-    git -C "$repo" log --first-parent --format='%h %cI %an %s' -n "$GIT_CAP" "$head"
+    [ -n "$days" ] && since=(--since="$days days ago")
+    git -C "$repo" log --first-parent --format='%h %cI %an %s' ${since[@]+"${since[@]}"} -n "$GIT_CAP" "$head"
     return
   fi
   echo "delta=incremental"
