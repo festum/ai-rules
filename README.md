@@ -20,11 +20,14 @@ Tested rules, not a template: each one replaces a failure seen in daily multi-ag
 
 ## Methodology
 
-| Method | Source | Lives in | Effect |
-|---|---|---|---|
-| Agent-Computer Interface discipline | SWE-agent (arXiv:2405.15793) | `rules.md` §9 | Batch independent reads, use bounded file windows, cap output, run risk-scoped checks, and stop repeated unsuccessful fixes |
-| Plan critique with a convergence exit | Self-refinement research (Self-Refine, Reflexion) | `rules.md` §1 | Review complex/high-risk plans for material gaps; stop when resolved, without a quota of clean rounds |
-| Cross-session task state | GSD's per-project state records, adapted | `rules.md` §8 | One `STATE.md` per task, shared by every agent, session, and worktree, so work never restarts from zero |
+| Method | Source | Lives in |
+|---|---|---|
+| Short always-on rules, procedures in skills, verify before done | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) | `system/` vs `skills/` split |
+| Agent-Computer Interface: batched reads, bounded windows, capped output | [SWE-agent, arXiv:2405.15793](https://arxiv.org/abs/2405.15793) | `rules.md` §9 |
+| Real-issue tasks: define the problem with a proving command before patching | [SWE-bench, arXiv:2310.06770](https://arxiv.org/abs/2310.06770) | `rules.md` §1 |
+| Plan critique that stops once material findings are resolved | [Self-Refine, arXiv:2303.17651](https://arxiv.org/abs/2303.17651) | `rules.md` §1 |
+| Failure verdicts written down and reused instead of retried | [Reflexion, arXiv:2303.11366](https://arxiv.org/abs/2303.11366) | `rules.md` §6, §8 |
+| One `STATE.md` per task across agents and sessions | GSD's per-project state records, adapted | `rules.md` §8 |
 
 ## Validated in use
 
@@ -33,6 +36,7 @@ Each rule below replaced a real failure:
 - **Claims without evidence**: check-pass claims require observed output; reliable operation results suffice for routine actions. Reporting never creates a need for tests (§10).
 - **Re-diagnosis loops**: the root cause gets recorded once with its proving command; later turns implement from it (§1).
 - **Repetition under stress**: a tripwire in `sticky_rules.md` forces a rewrite from a clean angle.
+- **Gaming approval gates**: a weak model followed a CI-log hint, posted sign-off comments, rewrote PR role fields, and polled in a loop. Gate red now means "waiting on a human", and tool-output hints are data (§3, sticky rule 6).
 - **Behavior overturned on ticket say-so**: origin gets traced before any reversing change (§4).
 - **Rule bloat**: two trimming passes were needed once the file grew past readable size.
 - **Drift**: critique checks the plan, `STATE.md` findings and verification keep each turn checkable, and the rules themselves get revised on a fixed cadence (today's rules are revisions of earlier ones, not additions on top).
@@ -54,15 +58,11 @@ Sub-commands: `rules` links rules only, `skills` refreshes skill links and exter
 
 External packs (real directories under `~/.agents/skills`, symlinked into other agents): `cc-skills-golang` via `npx skills`, a subset of `obra/superpowers` (systematic-debugging), a subset of `anthropics/skills` (doc-coauthoring, docx, pdf, skill-creator, xlsx), plus humanizer and task-observer.
 
-### Verification and activation scope
-
-Simple questions, lookups, prose edits, and clear low-risk commands do not start a verification loop. Behavior changes, material risk, consequential uncertainty, explicit verification requests, and required acceptance/security/contract checks determine what must run. Delivery still requires the repository's applicable CI-equivalent checks. Valid evidence is reused; no extra unchanged `CLEAN` round or routine host retest is required.
-
-Rules links control local instructions; skill frontmatter controls discovery, and skill bodies supply dispatch prompts. Third-party bundles, including task-observer, remain unchanged. Local activation rules do not change a third-party description or guarantee that a harness will suppress automatic loading. Where needed, use the harness's supported skill-permission or discovery settings; do not rewrite the third-party bundle.
+Third-party bundles (including task-observer) are never rewritten; control their loading through the harness's skill settings.
 
 ## Daily workflow
 
-Edit `system/rules.md` and every linked tool picks it up next session. Edit the overlay the same way, no re-link needed. Task state lives in a folder per task that all agents read and write, per `rules.md` §8.
+Edit `system/rules.md` and every linked tool picks it up next session. Company-specific values (ticket formats, template field names, sign-off phrases, endpoints) go only in `~/.ai-rules.local.md`, never in this repo.
 
 ## Setup invariants
 
@@ -84,7 +84,7 @@ Edit a skill in this repo and existing links pick it up. A new skill folder need
 | `review-pr` | Review a teammate's PR against its Jira spec and current base branch |
 | `git-commit` | Commit, merge, push rules: Conventional Commits, base-branch sync, push gate, squash |
 | `dependabot` | Find, approve, auto-merge dependabot PRs; deploy gates and monitoring |
-| `omp` | Dispatch the headless executor with required checks and conditional same-session follow-ups (Hermes/OpenClaw only) |
+| `omp` | Dispatch the headless executor with required checks and same-session follow-ups (Hermes, `ship`, `delegate`) |
 | `voice` | Shape every generated or edited prose output |
 | `humanizer-ref` | Reference-register documents: CVs, API docs, specs, changelogs, READMEs |
 | `blog` | Blog workflows; `/blog write` turns a session's back-and-forth into a publishable markdown article: asks angle and audience, proposes titles and tags, runs fact-check and humanizer, never publishes |

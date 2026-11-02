@@ -36,7 +36,7 @@ Be fast. Review in this agent. Do not spawn subagents (no security / performance
 5. **Draft** — Number every finding. For each: the failure line, how it was verified (`verified: <command/log>` or `inference`), the precedent checked, and a one-line English comment. Ask which numbers to post.
 6. **Dedupe** — Before posting, check existing threads. Prefer reply-in-thread over a new inline comment. Resolve threads the author already fixed/acknowledged.
 7. **Post** — Publish only selected items at the matching file/line via `gh`.
-8. **Close out** — If no blockers remain after posting: approve. If nothing material to say: leave a short `"testing approved"` general comment.
+8. **Close out** — Human confirms close-out, then: no blockers remain after posting → approve. If nothing material to say: leave the repo's short sign-off comment from the local overlay (`~/.ai-rules.local.md`); none configured → approve only.
 9. **Re-check on reply** — When the author pushes back or pushes new commits, re-read the latest diff and threads and re-run the verification before replying. Do not defend a finding on its original basis.
 
 Skip Jira only if it is unreachable after one try; then judge from PR body + diff and say so.

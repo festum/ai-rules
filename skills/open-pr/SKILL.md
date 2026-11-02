@@ -44,9 +44,9 @@ Examples:
 
 ### 3. Write the Description
 
-If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in the template's required fields (e.g. feature owner, ticket ID) from the repo's `AGENTS.md`/`CLAUDE.md` or the branch name; ask if still unknown.
+If the repo has `.github/pull_request_template.md`, use only that template's content — no extra sections, no implementation notes. Keep the description very brief. Fill in the template's required fields (e.g. owner, ticket ID) from the repo's `AGENTS.md`/`CLAUDE.md` or the branch name; ask if still unknown.
 
-Some templates carry an approval or sign-off field (e.g. "Functional tester", "tested by", "reviewed by"). Leave it empty when opening the PR — it records who verified the change, so it belongs to the approver, not the author. Once a reviewer approves, anyone may fill it in with that approver's username; do not wait for the approver to do it, and do not fill it before an approval exists.
+Some templates carry an approval or sign-off field (e.g. "tested by", "reviewed by"). Leave it empty when opening the PR — it records who verified the change, so it belongs to the approver, not the author. After creation, the agent edits it only when a human explicitly asks, with that approver's username, and never before an approval exists.
 
 When the change removes, replaces, or reverses existing behavior, the description gives the reason for the change — what the old behavior was for, and why the new one is better — in one or two lines. The author states it; the reviewer weighs it against the code's history.
 

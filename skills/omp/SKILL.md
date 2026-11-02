@@ -44,7 +44,7 @@ Override `--max-time` / models when specified. `--cwd` when needed.
 - Preflight before dispatch: `command -v omp`, then `omp --version`. Missing or non-zero → read stderr, repair or install per https://omp.sh/, recheck `omp --version`; also fix in-scope cause (PATH, cwd, rejected flag). Still failing → `BLOCKED: omp unavailable` with stderr. Never assume OMP ran.
 - Capture **exit code and stderr**, not just stdout. Exit ≠ 0, empty stdout, or no result → failure.
 - Proof it started: new `~/.omp/agent/sessions/<slugified-cwd>/*.jsonl` after dispatch (no file → OMP never ran). `omp ps --json` adds daemon-supervised state.
-- Silence rule: no first output within 30s and no session file → kill; don't wait for `--max-time`. Retry once by another route: `PI_DEBUG_STARTUP=1`, drop any rejected host option, foreground if background failed. Still silent → `BLOCKED: omp not dispatched` with stderr startup phase.
+- Silence rule: no first output within 30s and no session file → kill; don't wait for `--max-time`. Retry once by another route: `PI_DEBUG_STARTUP=1`, drop any rejected host option, foreground if background failed. Still silent → fix in-scope cause shown by stderr startup phase, retry; `BLOCKED: omp not dispatched` with that phase only when remaining fix needs external input (`rules.md` §6).
 - `BLOCKED` report also written into STATE.md `## Gates`: reason + authorization needed. Stdout lost when session ends.
 - Stream watchdog: `providers.streamFirstEventTimeoutSeconds` / `providers.streamIdleTimeoutSeconds` (config, seconds; target 120s) bound first-event and inter-event silence so wedged stream exits non-zero; env `PI_STREAM_FIRST_EVENT_TIMEOUT_MS` / `PI_STREAM_IDLE_TIMEOUT_MS` (ms, `0` disables) override per run.
 - Debug hang: `PI_DEBUG_STARTUP=1` (stderr `[startup] <phase>` markers survive hard hang), `PI_TIMING=1`.
@@ -128,7 +128,7 @@ Deliver requested change, finding, plan, or blocker. Two unsuccessful fixes for 
 Done when: requested scope and acceptance criteria met, required checks pass. Smallest relevant checks during implementation; delivery checkpoint runs repository-required CI-equivalent checks. Before analysis and required verification, apply repo freshness (rules.md §2): never switch this task's worktree; read origin/<default> for base state. Reuse unchanged evidence; no extra clean round. Summarize result."
 ```
 
-Tiny one-shots: skip `--plan-yolo` if user only said `omp TASK`.
+Tiny one-shots: skip `--plan-yolo` if user only said `omp TASK`. Hermes always uses its canonical turn-0 command (`hermes.md` §2.1: this command plus `--mode=json`).
 
 **Optional follow-up, only for remaining verification need**
 
