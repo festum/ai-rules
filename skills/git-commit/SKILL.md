@@ -19,6 +19,7 @@ Other skills (`ship`, `open-pr`, `delegate`) defer to this skill for every commi
 - Conventional Commits, **no scope**: `feat: add OAuth2 login flow`, not `feat(auth): ...`.
 - Subject ≤18 words, imperative mood ("add", not "added"), lowercase after the type, no trailing period.
 - Never add a `Co-Authored-By` trailer.
+- Stage by explicit path only files the task changed; never `git add -A`, `git add .`, or `commit -a`. Agent artifacts (handoff, notes, plan, summary, report, scratch files) are never created inside a repo or worktree, so never staged; stray untracked files stay unstaged and get reported.
 - Body only when needed; explain **why**, not what (the diff shows what).
 - Breaking change: `feat!: change auth token format` plus a `BREAKING CHANGE:` footer with migration steps.
 
@@ -42,7 +43,7 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 ## 2. Syncing the base branch
 
-- `git fetch origin`, then **merge** the base branch (default `main`). Do not rebase.
+- `git fetch origin`, then **merge** the base branch: repo default branch (`git symbolic-ref refs/remotes/origin/HEAD`) unless the PR targets another. Do not rebase.
 - Resolve conflicts in favor of this branch's changes.
 - After a merge, review what the base brought in: reusable helpers/modules or spec changes needing adjustment. Rerun required checks invalidated by that merge; do not repeat checks backed by valid evidence on unchanged inputs.
 
@@ -57,7 +58,7 @@ Push is a different gate and reads the control signal, never the tool flags:
 - `unattended-auto`: push is authorized — the agent holding push authority pushes after verify, with no human "push".
 - `interactive` / `human`: pushing waits for the explicit human "push".
 - Cross-check the STATE.md header `control:`; it must match. Disagreement, or no positive `unattended-auto` evidence → treat as `interactive` (conservative).
-- Every push first squashes all not-yet-pushed work into one commit (§4), so the branch never accumulates garbage commits.
+- Every push, in order: `git fetch origin`, merge repo default branch (§2), rerun checks the merge invalidated, squash all not-yet-pushed work into one commit (§4), push. Never push a branch behind its default branch.
 - Merge authority (§5) stays with the controller (Hermes, or the human when Hermes is absent). `unattended-auto` authorizes it after review; executors never merge.
 
 ## 4. Squash on push
@@ -76,7 +77,7 @@ Merge authority belongs to Hermes only (the human when Hermes is absent). Execut
 - Preconditions before arming: real CI checks green (approval-gate jobs are exempt, they stay red until a human signs off), no unresolved review threads, `reviewDecision` = `APPROVED`.
 - Stop and report instead of arming when: auto-merge is disabled on the repo, or branch protection requires more approvals than this session can give. Never work around either; report `BLOCKED:` instead.
 - When the merge lands on GitHub, prefer **Squash and merge** so the PR lands as one commit with a message per §1. Use a merge commit only when the human explicitly asks.
-- After a merge, and during repo freshness (`rules.md` §2), remove only merged local branches and clean worktrees whose branch is merged; preserve branches in use and dirty or unmerged work. Remote deletion requires explicit authorization covering that deletion. A merge instruction alone does not authorize deleting remote branches, and finishing local work alone does not authorize any branch/worktree deletion.
+- Cleanup rides with the merge, never a question: once a branch this task worked on is merged into default branch (local merge, direct push, or PR merged on GitHub, seen at merge or next freshness sync), delete in same pass its local branch, remote branch, and clean worktree (`git branch -d <b>`, `git push origin --delete <b>`, `git worktree remove <path> && git worktree prune`). Keep worktree in use by running session until it ends, dirty or unmerged work. Remote branches of other people or tasks: deletion needs explicit authorization.
 
 ## 6. Setting work aside
 

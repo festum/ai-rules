@@ -40,7 +40,7 @@ Local overlay: `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists → apply on
 
 #### 1.5 Repo Freshness
 - Before analyzing, answering from, or dispatching work against git repo code, once per repo per task or session: `git fetch --prune origin`. Clean checkout not in use → switch to default branch, `pull --ff-only`. Checkout in use (running task's cwd or worktree, or listed under `## Repos & worktrees` in a `STATE.md` not under `_done/`) or dirty → never switched; read `origin/<default>` for base state. Divergence or failed fast-forward → report; never stash, reset, force. Continue read-only from `origin/<default>`; stop only before writing to that checkout. Failed fetch → continue from local refs marked `UNVERIFIED: freshness`.
-- Then delete local branches and remove clean worktrees whose branch is merged (merged PR head = tip, or tip in default branch with own-work evidence: reflog commit, cherry-pick, non-fast-forward merge, or non-default upstream). Keep branches in use, branches without own-work evidence, dirty or unmerged work. Remote deletion needs explicit authorization.
+- Then delete local branches and remove clean worktrees whose branch is merged (merged PR head = tip, or tip in default branch with own-work evidence: reflog commit, cherry-pick, non-fast-forward merge, or non-default upstream). Keep branches in use, branches without own-work evidence, dirty or unmerged work. Own merged task branch: remote branch deleted in same pass, never asked; other remote deletion needs explicit authorization.
 - Freshness = prerequisite, never verification trigger.
 
 ### 2. OMP Execution Subsystem
@@ -102,7 +102,7 @@ Non-code operations and explicitly requested config/rule updates, inside or outs
 
 #### 4.2 State Persistence (`STATE.md`)
 - One task state directory: `${AGENT_STATE_DIR:-$HOME/.local/state/agents}/<key>/STATE.md`, from template `~/.local/state/templates/STATE-template.md`.
-- No state files elsewhere (no `state*.yaml`, no `.bak`). Questions, lookups, one-off operations neither create nor update task state.
+- No state files elsewhere (no `state*.yaml`, no `.bak`). Never create agent artifacts (handoff, notes, plan, summary, report, scratch files) inside any repo or worktree, nor dispatch work that does. Questions, lookups, one-off operations neither create nor update task state.
 
 #### 4.3 File Governance
 - Scripts → `scripts/`, `kebab-case`; ad-hoc names (`tmp_*.md`, `new-final.*`) forbidden.

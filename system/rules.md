@@ -36,7 +36,7 @@ Per-consumer restatement deliberate; within one file, each rule once.
 - Extend before adding: before adding rule, section, or file, search concepts and synonyms across files (`grep -rni '<concept>' system/ skills/`), not newly coined names.
 
 Gates (exhaustive): confirm with human only for:
-1. Irreversible or outbound actions: push, creating/merging PRs (push, PR creation, merge after review lifted under `unattended-auto`), deleting remote branches or work, publishing externally.
+1. Irreversible or outbound actions: push, creating/merging PRs (push, PR creation, merge after review lifted under `unattended-auto`), deleting remote branches or work (except own merged task branch, §2), publishing externally.
 2. Creating or modifying Data Model / DB Schema entities.
 3. High-cost, mutually exclusive architecture forks (cross-service or large rewrites).
 4. Writing to external services (MCP writes per §3).
@@ -47,14 +47,15 @@ Gates (exhaustive): confirm with human only for:
 ## 2. Git Conventions and Repo Freshness
 
 - Follow `git-commit` skill: commit messages, base-branch merging, push squashing, safe stashing. Direct merge without PR per that skill: under `unattended-auto` when main accepts direct pushes; otherwise only user's own unprotected repos.
-- Commit and push: interactive sessions commit only on human approval; auto mode may commit checkpoints. Push needs explicit human instruction unless `HERMES_CONTROL=unattended-auto` (§1); squashes unpushed work into one commit.
+- Never create agent artifacts (handoff, notes, plan, summary, report, scratch files, e.g. `HANDOFF-NOTES.md`) anywhere inside a repo or worktree; they live only in task state dir (§8).
+- Commit and push: stage task files by explicit path only. Every push first fetches and merges default branch, then squashes (`git-commit` §3). Interactive sessions commit only on human approval; auto mode may commit checkpoints. Push needs explicit human instruction unless `HERMES_CONTROL=unattended-auto` (§1); squashes unpushed work into one commit.
 - Repo freshness: before analyzing, answering from, or planning against git repo code, once per repo per task or session (again before dispatch, commit, or after known remote change): `git fetch --prune origin`, then:
   - clean checkout not in use → switch to default branch, `pull --ff-only`;
   - checkout in use or dirty → don't switch: base-state questions from `origin/<default>`, branch questions from checked-out branch; say which was read;
   - failed fast-forward or divergence → report; never stash, reset, force past it. Continue read-only from `origin/<default>`; stop only before writing to that checkout;
   - failed fetch (offline, auth) → say so, continue from local refs marked `UNVERIFIED: freshness`.
   In use = cwd or worktree of running task, or listed under `## Repos & worktrees` in a `STATE.md` not under `_done/`. Freshness = prerequisite, never verification trigger.
-- Branch/worktree cleanup: after merge and each freshness sync, delete local branches and remove clean worktrees whose branch is merged: merged PR head = tip, or tip contained in default branch and branch carried own work (reflog records commit, cherry-pick, or non-fast-forward merge, or tracks upstream other than default branch). Keep branches in use, branches without own-work evidence, dirty or unmerged work. Remote deletion needs explicit authorization covering it. `snapshot` skill's `prepare` script implements this section.
+- Branch/worktree cleanup: after merge and each freshness sync, delete local branches and remove clean worktrees whose branch is merged: merged PR head = tip, or tip contained in default branch and branch carried own work (reflog records commit, cherry-pick, or non-fast-forward merge, or tracks upstream other than default branch). Keep branches in use, branches without own-work evidence, dirty or unmerged work. Branch this task merged: also delete its remote branch in same pass, never asked (`git-commit` §5); other remote branches need explicit authorization. `snapshot` skill's `prepare` script implements this section.
 
 ## 3. Skill Routing and External-Service Control
 
