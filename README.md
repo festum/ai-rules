@@ -56,7 +56,7 @@ One run links the rules in `system/` into each tool's native rules path and link
 
 Sub-commands: `rules` links rules only, `skills` refreshes skill links and external packs, `update` is an alias for `skills`, plain `./scripts/setup.sh` does both.
 
-External packs (real directories under `~/.agents/skills`, symlinked into other agents): `cc-skills-golang` via `npx skills`, a subset of `obra/superpowers` (systematic-debugging), a subset of `anthropics/skills` (doc-coauthoring, docx, pdf, skill-creator, xlsx), plus humanizer and task-observer.
+External packs (real directories under `~/.agents/skills`, symlinked into other agents): `cc-skills-golang` via `npx skills`, a subset of `obra/superpowers` (systematic-debugging), a subset of `anthropics/skills` (doc-coauthoring, docx, pdf, skill-creator, xlsx), plus humanizer, task-observer, show-me, and `mattpocock/skills` (grill-me, grilling, to-questionnaire).
 
 Third-party bundles (including task-observer) are never rewritten; control their loading through the harness's skill settings.
 
@@ -70,7 +70,7 @@ setup.sh must keep these; change the design, not as afterthought:
 
 - Path-independent: the repo can live anywhere; `REPO_ROOT` derives from the script's own location, and every link is an absolute direct symlink re-pointed on each run.
 - One-hop symlinks only: tools read the files fine through one symlink; never nest symlinks or copy the linked files.
-- Re-running `./scripts/setup.sh` re-syncs submodules and upstream skill packs (`skills`/`update` refreshes external packs, including task-observer and humanizer); rules links are idempotent. After moving the repo, re-run to re-point the links.
+- Re-running `./scripts/setup.sh` re-syncs submodules and upstream skill packs (`skills`/`update` refreshes external packs, including task-observer, humanizer, show-me, and the mattpocock skills); rules links are idempotent. After moving the repo, re-run to re-point the links.
 
 ## Skills
 

@@ -60,6 +60,8 @@ Notes:
     - Selective Superpowers skills sync/update from obra/superpowers (not full plugin).
     - Selective Anthropic skills sync/update from anthropics/skills (not full pack).
     - humanizer + task-observer sync from upstream repos into \`~/.agents/skills\` (not git submodules).
+    - show-me syncs from humanlayer/skills (one skill out of a plugin monorepo, not the full pack).
+    - grill-me + grilling + to-questionnaire sync from mattpocock/skills (grill-me only delegates to grilling).
 EOF
 }
 
@@ -101,6 +103,21 @@ HUMANIZER_REPO="https://github.com/blader/humanizer.git"
 HUMANIZER_CACHE="$HOME/.cache/ai-rules/humanizer"
 TASK_OBSERVER_REPO="https://github.com/rebelytics/one-skill-to-rule-them-all.git"
 TASK_OBSERVER_CACHE="$HOME/.cache/ai-rules/task-observer"
+
+# One skill out of the humanlayer plugin monorepo (show-me).
+HUMANLAYER_REPO="https://github.com/humanlayer/skills.git"
+HUMANLAYER_CACHE="$HOME/.cache/ai-rules/humanlayer-skills"
+SHOW_ME_SUBPATH="plugins/show-me/skills/show-me"
+
+# Selective Matt Pocock productivity skills (mattpocock/skills).
+# grill-me is a one-line delegator to grilling, so both ship together.
+MATTPOCOCK_REPO="https://github.com/mattpocock/skills.git"
+MATTPOCOCK_CACHE="$HOME/.cache/ai-rules/mattpocock-skills"
+MATTPOCOCK_SKILLS=(
+    grill-me
+    grilling
+    to-questionnaire
+)
 
 # Check shared rules file exists
 if [ ! -f "$RULES" ]; then
@@ -658,14 +675,16 @@ install_anthropics_skills() {
     fi
 }
 
-# Clone/update a single-skill upstream repo and copy into ~/.agents/skills/<name>.
-# Repo root must contain SKILL.md. Extra rsync excludes can be passed after cache path.
-# Args: skill_name repo_url cache_path [rsync-exclude-patterns...]
+# Clone/update an upstream repo and copy one skill dir into ~/.agents/skills/<name>.
+# source_subpath is relative to the repo root ("." when SKILL.md sits at the root).
+# Extra rsync excludes can be passed after the subpath.
+# Args: skill_name repo_url cache_path source_subpath [rsync-exclude-patterns...]
 sync_single_skill_repo() {
     local skill="$1"
     local repo="$2"
     local cache="$3"
-    shift 3
+    local subpath="$4"
+    shift 4
     local excludes=("$@")
 
     echo -e "${BLUE}📥 Updating $skill...${NC}"
@@ -696,8 +715,9 @@ sync_single_skill_repo() {
         print_warning "Network unavailable; re-syncing $skill from existing cache"
     fi
 
-    if [ ! -f "$cache/SKILL.md" ]; then
-        print_warning "Upstream $skill missing SKILL.md at repo root; skipping"
+    local src="$cache/$subpath"
+    if [ ! -f "$src/SKILL.md" ]; then
+        print_warning "Upstream $skill missing SKILL.md at $subpath; skipping"
         return 0
     fi
 
@@ -713,10 +733,10 @@ sync_single_skill_repo() {
         for ex in "${excludes[@]}"; do
             rsync_args+=(--exclude "$ex")
         done
-        rsync "${rsync_args[@]}" "$cache"/ "$dest"/
+        rsync "${rsync_args[@]}" "$src"/ "$dest"/
     else
         # Fallback without rsync: copy then strip .git / excludes
-        cp -a "$cache"/. "$dest"/
+        cp -a "$src"/. "$dest"/
         rm -rf "$dest/.git" "$dest/.DS_Store"
         local ex
         for ex in "${excludes[@]}"; do
@@ -729,13 +749,25 @@ sync_single_skill_repo() {
 }
 
 install_humanizer() {
-    sync_single_skill_repo "humanizer" "$HUMANIZER_REPO" "$HUMANIZER_CACHE"
+    sync_single_skill_repo "humanizer" "$HUMANIZER_REPO" "$HUMANIZER_CACHE" "."
 }
 
 install_task_observer() {
     # Upstream marketing images are large and unused by the skill runtime.
-    sync_single_skill_repo "task-observer" "$TASK_OBSERVER_REPO" "$TASK_OBSERVER_CACHE" \
+    sync_single_skill_repo "task-observer" "$TASK_OBSERVER_REPO" "$TASK_OBSERVER_CACHE" "." \
         "*.png" "*.jpg" "*.jpeg" "*.webp"
+}
+
+install_show_me() {
+    sync_single_skill_repo "show-me" "$HUMANLAYER_REPO" "$HUMANLAYER_CACHE" "$SHOW_ME_SUBPATH"
+}
+
+install_mattpocock_skills() {
+    echo -e "${BLUE}🎤 Updating Matt Pocock productivity skills...${NC}"
+    local skill
+    for skill in "${MATTPOCOCK_SKILLS[@]}"; do
+        sync_single_skill_repo "$skill" "$MATTPOCOCK_REPO" "$MATTPOCOCK_CACHE" "skills/productivity/$skill"
+    done
 }
 
 # External/runtime packs that must not live in ai-rules/skills.
@@ -750,6 +782,10 @@ install_external_skills() {
     install_humanizer
     echo ""
     install_task_observer
+    echo ""
+    install_show_me
+    echo ""
+    install_mattpocock_skills
 }
 
 # Setup skills (per-skill symlinks into each agent skills dir)
@@ -827,7 +863,7 @@ setup_skills() {
     echo ""
     echo -e "${BLUE}🔄 Re-run anytime to update everything:${NC}"
     echo "  $0 skills   # or: $0 update"
-    echo "  Updates: ai-rules skill links + submodules + golang + Anthropic + Superpowers + humanizer + task-observer"
+    echo "  Updates: ai-rules skill links + submodules + golang + Anthropic + Superpowers + humanizer + task-observer + show-me + mattpocock (grill-me, grilling, to-questionnaire)"
 }
 
 # Main command handling
