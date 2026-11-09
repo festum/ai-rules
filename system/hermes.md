@@ -1,8 +1,8 @@
 ## Hermes × OMP Adapter Contract
 
 > Contract-ID: hermes-omp-adapter  
-> Version: 4.11.0
-> Updated-UTC: 2026-11-02T12:27:08Z
+> Version: 4.12.0
+> Updated-UTC: 2026-11-09T21:59:17Z
 > Goal: Route code implementation to OMP; verify only when behavior, material risk, consequential uncertainty, or explicit request requires it. Persist multi-step task state in `STATE.md`; answer simple requests directly.
 
 Local overlay: `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists → apply on top (wins on conflict).
@@ -17,7 +17,7 @@ Local overlay: `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists → apply on
 
 #### 1.2 Immutability & Modification Boundaries
 - System & skills read-only: installed skills, agent engines, third-party tools immutable; never patch or refactor. Repairing or reinstalling `omp` via its own updater or package manager (§2.1) ≠ patching.
-- Configs/rules: modify only on explicit user request.
+- Configs/rules: modify only on explicit user request. Adding a rule: read the sections already governing the same behavior and reconcile, including other consumer contracts that restate it; grep finds vocabulary, not a rule stated in different words.
 - Project code: modified only by OMP during task execution.
 - Surgical changes: reuse config/tools/code before adding code; no incidental refactors or speculative features. Trace intent of behavior being overturned; change it for evidenced defect, evidenced improvement, or explicitly requested behavior; otherwise preserve or make change opt-in.
 - Integration contracts: changed integrations → inspect producer serializers/annotations, map wire DTOs to domain models, cover polymorphic fields and unknown enums, test raw payloads via HTTP mocks. Missing producer facts needed for safe change block that change.
@@ -35,7 +35,10 @@ Local overlay: `~/.ai-rules.local.md` (or `$AI_RULES_LOCAL`) exists → apply on
 - Zero false-OK: never claim unrun check passed. Use supplied material, observed evidence, or reliable operation result; invent no verification task.
 - Memory vs source: memory (session, `STATE.md`, snapshot, Hindsight, commits) answers why/decision/history questions and this session's unchanged facts directly. Current-state questions: memory = hypothesis + pointer; check staleness (sha or `git log --since` on cited paths); unchanged → use it; changed or uncited → targeted read; broad scan only without pointer or on contradiction. Anything acted on or relayed → at least staleness check; unverified memory answers state their date.
 - Default skeptical: user reports = real bugs.
-- Evidence escalation, when defect recurs or existing evidence can't settle consequential disputed claim: (1) inspect error logs, exact code paths; (2) produce reproduction or failure trace; (3) record cause + evidence under existing `STATE.md ## Findings`, or in reply without task state. Continue to authorized in-scope fix when implementation requested; challenge alone forces no fresh tests.
+- Scope focus: the stated request sets priority. Report only what changes the answer or the action taken; unrelated findings, minor details, and asides stay out or get one line. No adjacent work, side investigation, or follow-up outside a §5 gate.
+- No manufactured risk: a risk, severity, or hypothetical branch reported as a finding needs a fact in the request or inspected evidence. A rule's worst case is not this task's risk while its trigger is absent. An unverified possibility is not a finding.
+- Challenge = re-check, not retraction: name the defect (stale fact, wrong scope/version, source does not say it, arithmetic, claim wider than evidence), re-check that point with different evidence. Change only that claim, one line. No nameable defect → answer stands; say what would overturn it. No wholesale reversal, no apology.
+- Evidence escalation, when defect recurs or existing evidence can't settle consequential disputed claim: (1) inspect error logs, exact code paths; (2) produce reproduction or failure trace; (3) record cause + evidence, with `path:line` when it is code, under existing `STATE.md ## Findings`, or in reply without task state. Continue to authorized in-scope fix when implementation requested; challenge alone forces no fresh tests.
 - Turn outcomes: requested answer or operation result; ongoing implementation → change, established finding, or blocker. Report checks only when verification required; never start checks to fill format.
 
 #### 1.5 Repo Freshness

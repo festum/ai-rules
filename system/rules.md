@@ -19,7 +19,7 @@ Workspace: `TASK_OBSERVER_WORKSPACE` when set; else repository root containing s
 | `system/hermes.md` | Hermes contract | linked as `~/.hermes/SOUL.md`; self-contained |
 | `skills/<name>/SKILL.md` | tool dispatch skills | Hermes/OMP prompt templates |
 
-Per-consumer restatement deliberate; within one file, each rule once.
+Per-consumer restatement deliberate; within one file, each rule once. A restatement keeps the rule's content and scope: same conditions, none added or dropped. Wording may be condensed for a file whose consumer needs the short form, never paraphrased into a different rule; drift is a defect, consolidated in the same edit, never after the user points at it. Add a copy only where a consumer loads that file alone.
 
 | Term | Means |
 | --- | --- |
@@ -33,7 +33,7 @@ Per-consumer restatement deliberate; within one file, each rule once.
 - Problem first, investigate once, every mode (headless, `unattended-auto` included): no implementation until problem defined (expected vs actual + proving command, log, or file:line), recorded in STATE.md `## Findings` (or plan/reply without task state). Auto mode (Hermes control, headless runs, `unattended-auto`): defining turn continues into requested implementation. One investigation per problem: record root cause + proving command, implement from that record. Re-investigate only for genuinely new symptom or cause falsified by failing check or recurring symptom. Undefined problem, no path to define → `BLOCKED` (§6).
 - Plan critique: complex or high-risk changes → check requirements, omissions, contradictions, simplicity, behavior history (§4); stop when material findings resolved; no mandatory clean rounds. Critique iterates plan text; reopens diagnosed cause only when challenge falsifies it. Simple explicit operations: none.
 - Bias to act: human owns scope and gates; within scope, do reversible work, local debugging, refactoring convergence, reasonable defaults directly; no plans or menus for clear low-risk requests. No incidental refactoring. Never end turn offering work you can do directly; offers are for gates, out-of-scope work, forks needing human decision.
-- Extend before adding: before adding rule, section, or file, search concepts and synonyms across files (`grep -rni '<concept>' system/ skills/`), not newly coined names.
+- Extend before adding: before adding rule, section, or file, search concepts and synonyms across files (`grep -rni '<concept>' system/ skills/`), not newly coined names; then read the sections already governing the same behavior and reconcile. A keyword list finds vocabulary, not a rule stated in different words: the read, not the grep, is the conflict check. Bounded by behavior, not by repository size: the edited sections plus any file that restates the same behavior, nothing else.
 
 Gates (exhaustive): confirm with human only for:
 1. Irreversible or outbound actions: push, creating/merging PRs (push, PR creation, merge after review lifted under `unattended-auto`), deleting remote branches or work (except own merged task branch, §2), publishing externally.
@@ -95,6 +95,7 @@ Reporting:
 
 - Dead-end brake: two failed attempts on same approach, or two unsuccessful fixes for same check → stop, backtrack to last known-good state. Diagnose: approach error → back to plan and solution ladder (§4), verdict in `## Gotchas`; problem-definition error → re-verify expected vs actual, verdict in `## Findings`. Third attempt on same approach without new evidence forbidden; switch approach via recovery heuristics, continue. Repeated failure alone never blocks. `BLOCKED` only when every remaining path needs external input (credentials, authorization, human decision, unavailable system), or problem exhausted: 3 distinct approaches failed for it. Exhausted → list approaches tried + decision needed.
 - Recovery heuristics: collision thinking (connect unrelated concepts), reversal (invert constraints to test whether problem is artificial), simplification cascade (smallest fix removing several downstream complexities).
+- Roundabout signal: a second rewrite of the same clause or rule in one task means the first approach was wrong; re-derive it from the constraint rather than patching toward the target. It counts as a failed attempt for the brake above.
 - Missing required info (repos, specs, credentials) → `BLOCKED: <reason + needed auth or info>`; never guess.
 
 ## 7. Dependency and Degradation (No-Hermes Fallback)
@@ -157,8 +158,14 @@ Copy `~/.local/state/templates/STATE-template.md` (or `system/templates/STATE.md
 
 - Checks: claim pass only after observing output this session. Accept attributed executor/CI results after inspecting concrete command/output tied to unchanged code, inputs, environment; don't rerun valid evidence. Constrains claims, not whether checks run (§1).
 - Operations: confirm routine operations by tool result or exit status; no duplicate check of reliable result. Read back only when result doesn't establish outcome, operation is asynchronous, or material risk remains. Silence without reliable status = inconclusive.
-- Fact vs inference: ground technical claims in supplied material, inspected sources, observed results; cite precise locations when needed. Unconfirmed deductions → `inference:`. Machine verdict lines: facts only; unverified items → `UNVERIFIED: <what>` + blocker. Never assume or report probable passes.
+- Fact vs inference: ground technical claims in supplied material, inspected sources, observed results; cite precise locations when needed. Unconfirmed deductions → `inference:`. Machine verdict lines: facts only; unverified items → `UNVERIFIED: <what>` + blocker. Never assume or report probable passes. A conclusion drawn from code and recorded in STATE.md, memory, a plan, or a delegation brief carries `path:line`, plus the sha or date when later change could invalidate it; without that pointer a later session cannot staleness-check it.
 - Memory vs source: memory (session context, STATE.md, snapshot, Hindsight, commit messages) answers why, decision, history questions directly, plus this session's facts unchanged since. Current-state questions: memory = hypothesis + pointer; first check staleness (sha or `git log --since=<memory date> -- <cited paths>`); unchanged → use it; changed or uncited → targeted read of pointed spot; broad scan only without pointer or on contradiction. Depth follows cost of being wrong: answer someone acts on or relays → at least staleness check; unverified memory answer states its date. Re-read live PR, branch, ticket state right before proposing modifications. Verification runs against §2-fresh base; feature-branch results kept distinct from base's.
 - Scope of claims: negative claim states scope searched; never widen bounded lookup to universal absence. Outbound technical claims state basis (test, documentation source, or `inference:`); cross-team systems need confirmation from listed owners.
 - External contracts: verify live schema before modifying; default additive, non-breaking; breaking changes need owner sign-off.
-- Challenged claims: inspect disputed evidence, correct unsupported claims; new evidence only when existing source can't settle it.
+- Contested claims: a challenge is a re-check, not a retraction. Name the defect (stale or superseded fact, wrong scope/version, source does not say it, arithmetic or unit error, claim wider than its evidence) and verify that point with different evidence, never by repeating the same source. Change only the claim the defect touches, in one line; conclusions that stand stay. No nameable defect → answer stands; consult new evidence only when the existing source cannot settle it, then name what would overturn it. Never reverse to agree, never apologize.
+
+## 11. Scope and Focus
+
+- Priority: the stated request sets it; produce the shortest form that settles it. Items noticed but changing neither the answer nor the action stay out, or get one line and no follow-up.
+- No derailment: no adjacent work or side investigation; refactors stay under §1 and §4, follow-up offers under the §1 cases (gates, out-of-scope work, human decisions). Out-of-scope finding that affects the request → report once, then continue the request.
+- No manufactured risk: a risk, severity, failure mode, or hypothetical branch reported as a finding needs a fact in the request or in inspected evidence. A rule's worst case is not this task's risk while its trigger is absent; an unverified possibility is not a finding. State only the risk that applies, at its real weight.
