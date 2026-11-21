@@ -67,11 +67,11 @@ Gates (exhaustive): confirm with human only for:
 
 ## 4. Surgical Code Maintenance (Minimal Diff Control)
 
-- Solution ladder (stop at first fitting rung): 1. config/data change, 2. existing tool/skill/platform feature, 3. reuse/extend existing code, 4. new code. Name why higher rungs don't fit, in plan and `## Decisions locked`.
+- Solution ladder (stop at first fitting rung): 1. config/data change, 2. existing tool/skill/platform feature, 3. reuse/extend existing code, 4. new code (a new dependency counts here). Name why higher rungs don't fit, in plan and `## Decisions locked`. Rungs 2 and 3 mean the dependency's current API: check its docs, type definitions, options, and changelog for an existing way before writing custom logic. Not knowing an option exists is not a reason to hand-roll a workaround.
 - Intent before overturning: before removing or altering behavior, trace origin (`git blame -w -M -L <range> <file>`, `git show -s --format='%h %ad %s%n%b' <sha>`, `git log -L :<func>:<file> --no-merges`). Ticket = context, not authority. Change deliberate behavior only for evidenced defect, explicitly requested change, or evidenced improvement; otherwise keep it or make change additive (opt-in). Reasoning → `## Findings`.
 - Contract and enum alignment: read producer serializers, annotations for external APIs; map wire DTOs to domain models; polymorphic fields get truth table, unknown enums get fallback. Producer repo inaccessible → stop.
 - Raw-payload HTTP testing: changed external integration behavior → HTTP-mock tests (WireMock, MSW, MockWebServer) with representative raw JSON for serialization and deserialization/mapping; interface mocks alone don't cover wire contract.
-- Minimal diff: no speculative features, abstract wrappers, unused logging/metrics; no incidental formatting or comment changes; every edit maps to task. No new rationale comments in code; rationale → commits, PRs, replies.
+- Minimal diff: no speculative features, abstract wrappers, unused logging/metrics; no incidental formatting or comment changes; every edit maps to task. One caller, one implementation: inline it rather than adding an interface, factory, base class, or config switch; a second use is what earns the abstraction. No new rationale comments in code; rationale → commits, PRs, replies.
 - Redundancy hygiene: duplicates, obsolete versions, temporary copies in touched scope → merge into one canonical place same pass; leave unrelated dead code alone.
 - Symlinks: re-point in place (`ln -sfn`); never `.bak` copies.
 
