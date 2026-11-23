@@ -63,7 +63,9 @@ Push is a different gate and reads the control signal, never the tool flags:
 
 ## 4. Squash on push
 
-Every push: first squash ALL not-yet-pushed work into exactly one commit (message per §1), then push. Scope: every commit ahead of the upstream (or ahead of the base before the first push) plus any uncommitted working-tree changes. Applies to every push, not only the first. Never rewrite commits that are already pushed, unless the user has given standing authorization to amend and force-push on their own feature branch.
+Every push: first squash ALL not-yet-pushed work into exactly one commit (message per §1), then push. Scope: every commit ahead of the upstream (or ahead of the base before the first push) plus any uncommitted working-tree changes. Applies to every push, not only the first.
+
+Open PR on the branch: the same squash applies to every follow-up push — review fixes and any other commits made since the last push land as one commit on top of the branch. That is an ordinary push, not a rewrite. Never amend, rebase, or force-push commits the PR already shows; rewrite history only before the first push, or when the user has given standing authorization to amend and force-push their own feature branch.
 
 ## 5. Merging a PR
 

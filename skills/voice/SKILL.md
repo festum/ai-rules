@@ -155,7 +155,7 @@ Guess like `probably the same as before` hands reader a claim to disprove and fo
 - Framing that calls reader's idea significant, novel, or insightful without evidence goes away with its sentence.
 - One precise term over descriptive phrase; established team abbreviations when unambiguous.
 - Don't narrate tools, searches, timestamps, internal process unless tool is the subject. Never say which tool produced result.
-- No rationale comments in code; rationale → commit message, PR body, or reply.
+- No code comments by default; ask before writing one and default to no; rationale → commit message, PR body, or reply.
 - No AI fingerprints: no co-author trailer, generated-by footer, watermark, badge, `AI Review` or `AI-generated` label, no self-reference like `As an AI` or `I analyzed the code and found`. Match format human author would use there.
 
 ## Humanizer pass
