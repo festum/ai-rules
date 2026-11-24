@@ -49,6 +49,8 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 ## 3. Push gate
 
+Every commit, checkpoints included, passes the §8 review gate first.
+
 Interactive sessions: commit only when the human explicitly asks; "push" means commit then push. Until then, leave changes in the working tree.
 
 Auto mode (dispatched runs: Hermes direct rule/config edits, OMP executing a delegated task): checkpoint commits are allowed. Commit mode is determined by invocation: headless flags (`-p`, `--auto-approve`, `--approval-mode=yolo`) = `auto`; interactive TTY without them = human session. Misclassification is low-stakes: worst case is extra local commits, squashed at push.
@@ -89,3 +91,11 @@ The stash stack is shared across worktrees and sessions, so never use bare `git 
 
 - Committer identity comes from git config (`user.name`, `user.email`). Never override it per commit: no `--author`, no `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env, no ad-hoc config override. If the commit needs an identity that differs from git config, stop and ask the human.
 - If the repo or machine already has commit signing configured (`commit.gpgsign`, SSH signing, or CI signature checks), keep signing on every commit. Never pass `--no-gpg-sign` or disable signing to make a commit go through; if signing fails, report and stop instead of bypassing.
+
+## 8. Pre-commit review gate
+
+Every commit, checkpoints included, passes this gate before staging; `rules.md` §5 owns the criteria.
+
+- Read the whole diff first: every hunk necessary, nothing duplicated in it, and every new helper, component, query, or dependency checked against an existing one and replaced by it when that one fits.
+- Fix or drop what fails in the same pass. Never defer it to review or a follow-up, and never commit "for now".
+- Self-review, not a human approval: it adds no verification round beyond the checks the change already requires.

@@ -39,11 +39,7 @@ Read Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to comp
   2. Build HTTP-level raw payload tests from producer's real payload shape; failing test first to validate deserialization and mapping.
   3. Complete implementation, make test pass.
 - Verification scope: during implementation, checks covering changed behavior and material risks; prose-only edits and routine operations start no test loop. Before delivery/push: satisfy repo's required CI-equivalent lint/tests and explicit acceptance criteria. Preserve security checks and HTTP raw-payload tests for changed integrations. Reuse valid unchanged evidence; no mandatory extra clean round or duplicate host run.
-- Self code review (read `git diff`):
-  1. No noise: no debug prints, debug code, unrelated formatting, unused imports.
-  2. Defensive: null/empty checks, exception handling, boundary conditions present.
-  3. Consistency: logic matches Truth Table and Jira spec 100%.
-  (Don't proceed until all three pass.)
+- Self code review (read `git diff`) against `rules.md` §5: necessary, reused, not redundant, no noise, defensive; plus consistency: logic matches Truth Table and Jira spec 100%. Don't proceed until all pass.
 - Stage end: update STATE.md `## Status` and `## Verification` (one line each), append one line to `log.md`.
 
 ### 3. Push and PR creation (or direct merge)

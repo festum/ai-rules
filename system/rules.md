@@ -79,10 +79,11 @@ Gates (exhaustive): confirm with human only for:
 
 Review affected diff proportionately; review itself needs no commands:
 
-1. No noise: no debug logs, temp prints, unused imports, irrelevant formatting.
-2. Defensive: null checks, exception handling, edge cases addressed.
-3. Consistency: matches request and applicable contracts. When §1 triggers verification: run smallest relevant check, widen only for concrete uncovered risk or failure, stop once required checks pass.
-4. No restatement: reply repeats no prompt, doc, earlier text.
+1. Necessary, reused, not redundant: every hunk maps to the request; no dead code, debug output, unused imports, speculative options, or gold-plating; a new helper, component, query, or dependency has no existing equivalent (else use that one, or say in the commit or PR why it does not fit, §4); nothing in the diff repeats the diff, the repo, or a linked package, and duplicates collapse into one canonical place in this pass.
+2. No noise: no debug logs, temp prints, unused imports, irrelevant formatting.
+3. Defensive: null checks, exception handling, edge cases addressed.
+4. Consistency: matches request and applicable contracts. When §1 triggers verification: run smallest relevant check, widen only for concrete uncovered risk or failure, stop once required checks pass.
+5. No restatement: reply repeats no prompt, doc, earlier text.
 
 Reporting:
 
