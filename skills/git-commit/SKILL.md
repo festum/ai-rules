@@ -37,9 +37,11 @@ Other skills (`ship`, `open-pr`, `delegate`) defer to this skill for every commi
 | `revert` | Reverting a previous commit |
 
 Good: `fix: resolve race condition in WebSocket reconnect`, `chore: upgrade TypeScript to 5.4`.
-Bad: `fixed stuff`, `WIP`, `update`, `feat(api): ...` (has a scope).
+Bad: `fixed stuff`, `update`, `feat(api): ...` (has a scope), bare `WIP` (a checkpoint is `wip: <subject>`, next paragraph).
 
 Each commit is one logical change; don't mix refactoring with feature work.
+
+Local checkpoints are the one exception to the types above: work committed before verification has run carries the `wip: <subject>` prefix, never reaches the remote, and is dropped and replaced by the final commit once verification passes (§3, §4).
 
 ## 2. Syncing the base branch
 
@@ -49,25 +51,34 @@ Each commit is one logical change; don't mix refactoring with feature work.
 
 ## 3. Push gate
 
-Every commit, checkpoints included, passes the §8 review gate first.
+Every commit that can be pushed passes the §8 review gate first; a `wip:` checkpoint does not need it, its final replacement does.
 
 Interactive sessions: commit only when the human explicitly asks; "push" means commit then push. Until then, leave changes in the working tree.
 
-Auto mode (dispatched runs: Hermes direct rule/config edits, OMP executing a delegated task): checkpoint commits are allowed. Commit mode is determined by invocation: headless flags (`-p`, `--auto-approve`, `--approval-mode=yolo`) = `auto`; interactive TTY without them = human session. Misclassification is low-stakes: worst case is extra local commits, squashed at push.
+Auto mode (dispatched runs: Hermes direct rule/config edits, OMP executing a delegated task): checkpoint commits are allowed, always with the `wip:` prefix. Commit mode is determined by invocation: headless flags (`-p`, `--auto-approve`, `--approval-mode=yolo`) = `auto`; interactive TTY without them = human session. Misclassification is low-stakes: worst case is extra local commits, squashed at push.
+
+Checkpoints exist so unverified work is never lost. They stay local and are never pushed. Verification passing retires one: `git reset --soft <sha before the wip commit>`, then the final commit per §1. Verification failing keeps the `wip:` commit as the resume point. A session that ends with `wip:` commits still present reports them, never pushes them.
 
 Push is a different gate and reads the control signal, never the tool flags:
 - Read `HERMES_CONTROL` (unset = `interactive`). `--auto-approve` / `--approval-mode=yolo` never authorize a push.
 - `unattended-auto`: push is authorized — the agent holding push authority pushes after verify, with no human "push".
 - `interactive` / `human`: pushing waits for the explicit human "push".
 - Cross-check the STATE.md header `control:`; it must match. Disagreement, or no positive `unattended-auto` evidence → treat as `interactive` (conservative).
-- Every push, in order: `git fetch origin`, merge repo default branch (§2), rerun checks the merge invalidated, squash all not-yet-pushed work into one commit (§4), push. Never push a branch behind its default branch.
+- Every push, in order: `git fetch origin`, merge repo default branch (§2), rerun checks the merge invalidated, squash all not-yet-pushed work into one commit (§4), confirm `git rev-list --count @{upstream}..HEAD` = 1, push. Never push a branch behind its default branch.
 - Merge authority (§5) stays with the controller (Hermes, or the human when Hermes is absent). `unattended-auto` authorizes it after review; executors never merge.
 
 ## 4. Squash on push
 
-Every push: first squash ALL not-yet-pushed work into exactly one commit (message per §1), then push. Scope: every commit ahead of the upstream (or ahead of the base before the first push) plus any uncommitted working-tree changes. Applies to every push, not only the first.
+Every push, the first one included: all work not yet on the remote lands as exactly one commit (message per §1). Commits the remote already has are never touched.
 
-Open PR on the branch: the same squash applies to every follow-up push — review fixes and any other commits made since the last push land as one commit on top of the branch. That is an ordinary push, not a rewrite. Never amend, rebase, or force-push commits the PR already shows; rewrite history only before the first push, or when the user has given standing authorization to amend and force-push their own feature branch.
+1. Boundary: `git rev-parse @{upstream}`; before the first push, `git merge-base HEAD origin/<default>` (§2 has already merged the base).
+2. Collapse: stage the task files by explicit path, `git reset --soft <boundary>`, `git commit` once. This rewrites local commits only, and any uncommitted change joins the same commit.
+3. Readiness: `git rev-list --count @{upstream}..HEAD` returns 1 immediately before `git push`.
+4. Push with no force flag. Squashing unpushed commits needs none, so it never collides with a force-push ban.
+
+A `wip:` commit is unpushed work like any other: the `reset --soft` collapse folds it into the single final commit, so no `wip:` subject ever reaches the remote.
+
+PR open on the branch: the same sequence on every follow-up push. Review fixes and anything else not yet pushed collapse into one commit that lands on top of the branch; that is an ordinary push. Never amend, squash, rebase, or force-push a commit the PR already shows, and never read "squash" as authorization for it.
 
 ## 5. Merging a PR
 
@@ -85,7 +96,7 @@ Merge authority belongs to Hermes only (the human when Hermes is absent). Execut
 
 ## 6. Setting work aside
 
-The stash stack is shared across worktrees and sessions, so never use bare `git stash` / `git stash pop`. Prefer a temporary WIP commit. If you must stash: `git stash push -u -m "<unique-tag>"`, record its SHA from `git stash list --format='%H %gs'`, restore with `git stash apply <sha>`, then drop that entry after finding it again by tag.
+The stash stack is shared across worktrees and sessions, so never use bare `git stash` / `git stash pop`. Prefer a `wip:` checkpoint commit (§3). If you must stash: `git stash push -u -m "<unique-tag>"`, record its SHA from `git stash list --format='%H %gs'`, restore with `git stash apply <sha>`, then drop that entry after finding it again by tag.
 
 ## 7. Committer identity and signing
 
@@ -94,7 +105,7 @@ The stash stack is shared across worktrees and sessions, so never use bare `git 
 
 ## 8. Pre-commit review gate
 
-Every commit, checkpoints included, passes this gate before staging; `rules.md` §5 owns the criteria.
+Every commit that can be pushed passes this gate before staging; `rules.md` §5 owns the criteria. A `wip:` checkpoint is exempt until it becomes the final commit, which then passes the gate in full.
 
 - Read the whole diff first: every hunk necessary, nothing duplicated in it, and every new helper, component, query, or dependency checked against an existing one and replaced by it when that one fits.
 - Fix or drop what fails in the same pass. Never defer it to review or a follow-up, and never commit "for now".

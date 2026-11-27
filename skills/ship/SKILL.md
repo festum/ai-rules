@@ -43,7 +43,7 @@ Read Jira ticket (via MCP); combine with Codebase/PRD/PR comment context to comp
 - Stage end: update STATE.md `## Status` and `## Verification` (one line each), append one line to `log.md`.
 
 ### 3. Push and PR creation (or direct merge)
-- Push follows gate in `git-commit` §3. `unattended-auto` → continue after verify. Otherwise hand results to human (Done / Not done / Next), wait for "push", which also covers creating PR. Commits before that follow `git-commit` mode rule (checkpoints allowed in auto mode).
+- Push follows gate in `git-commit` §3. `unattended-auto` → continue after verify. Otherwise hand results to human (Done / Not done / Next), wait for "push", which also covers creating PR. Commits before that follow `git-commit` mode rule (`wip:` checkpoints allowed in auto mode).
 - Push authorized → per `git-commit`: merge base branch, resolve conflicts in favor of this branch, review base changes for reusable code and spec changes; rerun only checks invalidated by merge; squash unpushed work into one commit.
 - `git-commit` §5 allows PR-free direct merge → merge per that section, skip PR and step 4. Otherwise create PR via `open-pr`: title, reviewers, linked issues compliant, template used; description = minimal English summary only, no AI markers.
 - PR exists → URL into STATE.md `## Sessions`, update `## Status`.
